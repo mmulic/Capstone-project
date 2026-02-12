@@ -1,0 +1,199 @@
+# 🛰️ Frontend Planning & Design Document  
+**Project:** Automated Disaster Damage Assessment from Aerial Imagery  
+
+---
+
+# 1) Overview
+
+The frontend is responsible for delivering an interactive geospatial dashboard that:
+
+- Displays pre- and post-disaster aerial imagery
+- Overlays model-generated damage classifications
+- Allows address and street-level querying
+- Integrates a chatbot for disaster impact questions
+- Provides an intuitive and responsive user experience
+
+The frontend acts as the presentation and interaction layer between users and the Vision-Language Model (VLM) backend system.
+
+---
+
+# 2) Technology Stack
+
+|       Layer       |     Technology    |
+|-------------------|-------------------|
+| Framework         | React             |
+| Mapping Library   | Leaflet           |
+| Styling           | Tailwind CSS      |
+| State Management  | React Context API |
+| API Communication | Axios / Fetch     |
+| Deployment        | Vercel / Azure    |
+
+---
+
+# 3) Frontend Architecture Overview
+
+React Application
+│
+├── Layout
+│ ├── Navbar
+│ ├── Sidebar (Chatbot)
+│ └── Map View
+│
+├── Map Module
+│ ├── Base Map (Tile Layer)
+│ ├── Pre-Disaster Imagery Layer
+│ ├── Post-Disaster Imagery Layer
+│ ├── GeoJSON Damage Overlay
+│ └── Legend + Filters
+│
+├── Chatbot Module
+│ ├── Input Component
+│ ├── Message Display Component
+│ └── API Integration Service
+│
+└── Address Search Component
+
+The application will follow a modular component-based structure to ensure maintainability and separation of concerns.
+
+---
+
+# 4) UI Layout Design
+
+## Dashboard Layout Concept
+
+- Interactive Map
+- Chatbot Interface
+
+### Key UI Elements
+
+- Toggle switch for pre/post imagery
+- Damage classification legend
+- Address search bar above the map
+- Loading indicators for model responses
+- Tooltips on buildings for damage classification
+
+---
+
+# 5) Map & Geospatial Design
+
+## Mapping Library: Leaflet
+
+### Core Features
+
+- Tile-based base map
+- Overlay GeoJSON damage data
+- Layer toggling for pre/post imagery
+- Interactive building-level popups
+
+### Damage Classification Color Scheme
+
+| Damage Level | Color  |
+|--------------|--------|
+| No Damage    | Green  |
+| Minor        | Yellow |
+| Major        | Orange |
+| Destroyed    | Red    |
+
+### GeoJSON Handling
+
+- Fetch GeoJSON from backend API
+- Dynamically apply style based on classification
+- Add hover and click interactions
+- Optimize performance for large datasets
+
+---
+
+# 6) Chatbot Integration
+
+The chatbot interface will:
+
+- Accept natural language user queries
+- Send POST requests to backend `/query` endpoint
+- Display structured responses
+- Maintain conversation history within the session
+
+### Example
+
+- "How many buildings are severely damaged on Elm Street?"
+- "Summarize damage in this neighborhood."
+- "What is the damage classification at 123 Main St?"
+
+---
+
+# 7) State Management Plan
+
+Global state will manage:
+
+- Selected imagery layer (pre/post)
+- Damage overlay visibility
+- Selected building or address
+- Chat history
+- Loading and error states
+
+React Context API will centralize shared state across components.
+
+---
+
+# 8) API Integration Plan
+
+|   Endpoint     | Method |           Purpose           |
+|----------------|--------|-----------------------------|
+| `/damage-data` | GET    | Fetch GeoJSON damage data   |
+| `/query`       | POST   | Process chatbot queries     |
+| `/evaluate`    | GET    | Retrieve evaluation metrics |
+
+All API calls will:
+
+- Include loading indicators
+- Handle error responses
+- Log failures for debugging
+
+---
+
+# 8) UI/UX Design Goals
+
+- Clean, modern, and professional interface
+- Clear visual distinction between damage levels
+- Minimal cognitive overload
+- Responsive design (desktop-first)
+- Smooth map interactions
+- Fast perceived performance
+
+---
+
+# 9) Development Milestones
+
+### Phase 1 – Setup
+- Initialize React project
+- Configure Tailwind
+- Integrate Leaflet
+
+### Phase 2 – Map Development
+- Render base map
+- Implement GeoJSON overlay
+- Add legend and classification styling
+
+### Phase 3 – Chatbot Interface
+- Build chat UI
+- Connect to backend API
+- Display structured responses
+
+### Phase 4 – Integration & Testing
+- Connect all components
+- Handle edge cases
+- Optimize performance
+
+### Phase 5 – Deployment
+- Deploy application
+- Final UI polish
+- Documentation and demo preparation
+
+---
+
+# Conclusion
+
+The frontend will serve as the interactive visualization and user interaction layer of the system.  
+
+By combining geospatial visualization, model output overlays, and conversational AI querying, the dashboard will provide a powerful and intuitive disaster damage assessment tool.
+
+---
