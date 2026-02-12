@@ -150,7 +150,7 @@ All API calls will:
 
 ---
 
-# 8) UI/UX Design Goals
+# 9) UI/UX Design Goals
 
 - Clean, modern, and professional interface
 - Clear visual distinction between damage levels
@@ -161,7 +161,7 @@ All API calls will:
 
 ---
 
-# 9) Development Milestones
+# 10) Development Milestones
 
 ### Phase 1 – Setup
 - Initialize React project
@@ -196,4 +196,3 @@ The frontend will serve as the interactive visualization and user interaction la
 
 By combining geospatial visualization, model output overlays, and conversational AI querying, the dashboard will provide a powerful and intuitive disaster damage assessment tool.
 
----
