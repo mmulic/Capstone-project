@@ -1,5 +1,5 @@
 # Capstone-project
-visual language model project for capstone 2026
+
 # Disaster Assessment Dashboard
 
 **Automated Disaster Damage Assessment from Aerial Imagery**
