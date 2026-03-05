@@ -1,0 +1,20 @@
+# Python environments
+.venv/
+venv/
+.env
+.env*
+
+# OS / Python junk
+.DS_Store
+__pycache__/
+*.pyc
+
+# Generated outputs
+ml/results/
+
+# Local extracted datasets
+ml/data/subset_harvey/
+ml/data/test/
+
+# Local combined archive
+ml/data/test_images_labels_targets.tar
