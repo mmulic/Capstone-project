@@ -2,14 +2,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
+from app.core.rate_limit import RateLimitMiddleware
+from app.core.logging_config import configure_logging, RequestLoggingMiddleware
 from app.routers import health, ingest
 from app.routers.geojson import router as geojson_router
 from app.routers.batch_ingest import router as batch_ingest_router
-from app.routers.stubs import (
-    predict_router, results_router, chat_router, evaluate_router, auth_router
-)
+from app.routers.predict import router as predict_router
+from app.routers.results import router as results_router
+from app.routers.chat import router as chat_router
+from app.routers.stats import router as stats_router
+from app.routers.evaluate import router as evaluate_router
+from app.routers.auth import router as auth_router
 
 settings = get_settings()
+configure_logging(level="DEBUG" if settings.debug else "INFO")
 
 
 def create_app() -> FastAPI:
@@ -20,12 +26,12 @@ def create_app() -> FastAPI:
             "Manages aerial image ingestion, VLM-based damage prediction, "
             "geospatial queries, chatbot interface, and FEMA evaluation."
         ),
-        version="0.1.0",
+        version="1.0.0",
         docs_url="/docs",
         redoc_url="/redoc",
     )
 
-    # CORS — allow frontend dev server
+    # ── Middleware ───────────────────────────────────────
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:3000", "http://localhost:5173", "*"],
@@ -33,20 +39,27 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(RequestLoggingMiddleware)
 
     # ── Routers ──────────────────────────────────────────
     # Sprint 1: Foundation
     app.include_router(health.router)
 
-    # Sprint 2: Data Ingestion (implemented)
+    # Sprint 2: Data Ingestion
     app.include_router(ingest.router)
     app.include_router(geojson_router)
     app.include_router(batch_ingest_router)
 
-    # Sprints 3-5: Stub endpoints (visible in Swagger, implemented later)
+    # Sprint 3: Predictions + Results
     app.include_router(predict_router)
     app.include_router(results_router)
+
+    # Sprint 4: Chatbot + Stats
     app.include_router(chat_router)
+    app.include_router(stats_router)
+
+    # Sprint 5: Evaluation + Auth
     app.include_router(evaluate_router)
     app.include_router(auth_router)
 
@@ -54,6 +67,7 @@ def create_app() -> FastAPI:
     async def root():
         return {
             "app": settings.app_name,
+            "version": "1.0.0",
             "docs": "/docs",
             "health": "/health",
         }
