@@ -1,0 +1,54 @@
+services:
+  # ── React Frontend (Nginx) ───────────────────────────
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../disaster-assessment-backend/deploy/frontend.Dockerfile
+      args:
+        # Frontend talks to backend via the EC2 public IP / domain
+        # In production, use a relative URL or environment-driven value
+        VITE_API_BASE_URL: ""
+    container_name: disaster-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  # ── FastAPI Backend ──────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile  # production Dockerfile
+    container_name: disaster-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── PostgreSQL + PostGIS ─────────────────────────────
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: disaster-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_dev_password
+      POSTGRES_DB: disaster_assessment
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:

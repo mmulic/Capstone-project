@@ -13,6 +13,8 @@ from app.routers.chat import router as chat_router
 from app.routers.stats import router as stats_router
 from app.routers.evaluate import router as evaluate_router
 from app.routers.auth import router as auth_router
+from app.routers.ml_bridge import router as ml_bridge_router
+from app.routers.frontend_compat import router as frontend_compat_router
 
 settings = get_settings()
 configure_logging(level="DEBUG" if settings.debug else "INFO")
@@ -62,6 +64,12 @@ def create_app() -> FastAPI:
     # Sprint 5: Evaluation + Auth
     app.include_router(evaluate_router)
     app.include_router(auth_router)
+
+    # Bridge to ML teammate's Supabase database
+    app.include_router(ml_bridge_router)
+
+    # Frontend compatibility aliases (no /api prefix — frontend calls these at root)
+    app.include_router(frontend_compat_router)
 
     @app.get("/", include_in_schema=False)
     async def root():

@@ -31,3 +31,6 @@ aiosqlite==0.20.0
 
 # Linting
 ruff==0.6.9
+
+# ML bridge — sync psycopg for Supabase reads
+psycopg[binary]==3.2.3
