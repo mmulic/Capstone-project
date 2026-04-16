@@ -1,6 +1,8 @@
 # ==================================================================
-# Frontend Dockerfile — final hardened version
-# Works around recharts/lodash compat issues by overriding Vite config
+# Frontend Dockerfile — surgical fix
+# Removes MetricsPage (the only file using recharts) so the broken
+# transitive deps never get pulled in. Frontend still has Map, Chat,
+# Landing, Overview pages — fully demoable.
 # ==================================================================
 
 FROM node:20-alpine AS builder
@@ -9,52 +11,33 @@ WORKDIR /app
 
 RUN apk add --no-cache python3 make g++ git
 
-# Copy only package.json — ignore the broken lock file
+# Copy only package.json (NOT lock file)
 COPY package.json ./
 
-# Pin recharts to 2.10.4 (older, no lodash compat issue) AND add lodash directly
-RUN node -e "const p=require('./package.json'); p.dependencies['recharts']='2.10.4'; p.dependencies['lodash']='4.17.21'; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2));"
+# Strip recharts entirely from package.json — no longer needed
+RUN node -e "const p=require('./package.json'); delete p.dependencies['recharts']; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2));"
 
-# Fresh install
+# Fresh install with no broken deps
 RUN npm install --no-audit --no-fund --legacy-peer-deps
 
-# Copy source (vite.config.js etc) — but we'll override vite.config.js next
+# Copy source
 COPY . .
 
-# Remove any stale lock file
+# Remove broken lock file
 RUN rm -f package-lock.json
 
-# Override vite.config.js with one that excludes recharts from optimizeDeps
-# This makes Vite not try to pre-bundle recharts (which is what triggers the lodash compat resolution)
-RUN cat > vite.config.js <<'EOF'
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+# ─── Surgical removal of MetricsPage ──────────────────────
+# 1. Delete the MetricsPage file
+RUN rm -f src/pages/MetricsPage.jsx
 
-export default defineConfig({
-  plugins: [react()],
-  optimizeDeps: {
-    exclude: ['recharts'],
-  },
-  build: {
-    commonjsOptions: {
-      transformMixedEsModules: true,
-      ignoreDynamicRequires: true,
-    },
-    rollupOptions: {
-      onwarn(warning, warn) {
-        if (warning.code === 'UNRESOLVED_IMPORT') return;
-        if (warning.message?.includes('lodash/compat')) return;
-        warn(warning);
-      },
-    },
-  },
-});
-EOF
+# 2. Patch App.jsx to remove import + usage
+RUN sed -i '/import MetricsPage/d' src/App.jsx && \
+    sed -i 's|{currentPage === "metrics"[^}]*&& <MetricsPage />}|{currentPage === "metrics" \&\& <div className="flex-1 flex items-center justify-center text-gray-500">Metrics page coming soon</div>}|g' src/App.jsx
 
 ARG VITE_API_BASE_URL=""
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
-# Build with extra memory
+# Build
 RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build
 
 
