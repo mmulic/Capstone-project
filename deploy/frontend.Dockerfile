@@ -1,34 +1,42 @@
 # ==================================================================
 # Frontend Dockerfile (Vite + React + Tailwind)
-# Stage 1: Build the production bundle with Vite
-# Stage 2: Serve via Nginx
+# Hardened against frontend dependency issues.
 # ==================================================================
-# This file lives in the frontend/ folder, copied here for reference.
-# When deploying via docker-compose, the build context points to ./frontend.
 
 # ─── Stage 1: Build ───────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install deps first (cached layer)
-COPY package.json package-lock.json* ./
-RUN npm ci --no-audit --no-fund
+# Install python+make for any node-gyp transitive deps
+RUN apk add --no-cache python3 make g++ git
+
+# Copy package.json only (NOT lock file — it's broken)
+COPY package.json ./
+
+# Pin recharts to a known-working version BEFORE install to override their version
+# 2.12.7 is the last version without the lodash/compat import bug
+RUN node -e "const p=require('./package.json'); p.dependencies['recharts']='2.12.7'; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2));"
+
+# Fresh install — generates a working lock file
+RUN npm install --no-audit --no-fund --legacy-peer-deps
 
 # Copy source and build
 COPY . .
 
-# VITE_API_BASE_URL can be set as a build arg
+# Remove the old broken lock file if it got copied over
+RUN rm -f package-lock.json
+
 ARG VITE_API_BASE_URL=""
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
-RUN npm run build
+# Build with extra memory in case of OOM
+RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build
 
 
 # ─── Stage 2: Serve ───────────────────────────────────────────────
 FROM nginx:alpine AS runtime
 
-# Custom nginx config for SPA routing (all routes → index.html)
 RUN echo 'server { \
     listen 80; \
     server_name _; \
