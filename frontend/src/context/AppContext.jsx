@@ -14,7 +14,7 @@ export const AppProvider = ({ children }) => {
   const [selectedSceneId, setSelectedSceneId] = useState(null);
 
   // Overlay map controls
-  const [opacity, setOpacity] = useState(75);
+  const [opacity, setOpacity] = useState(100);
   const [damageFilters, setDamageFilters] = useState({
     destroyed: true,
     major: true,
