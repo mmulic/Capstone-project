@@ -72,6 +72,19 @@ export function getScenePreview(data, sceneId) {
 }
 
 /**
+ * Returns the geographic bounds for a scene as a Leaflet-ready
+ * [[sw_lat, sw_lng], [ne_lat, ne_lng]] pair, or null if unavailable.
+ */
+export function getSceneBounds(data, sceneId) {
+  const s = findSceneById(data, sceneId);
+  if (!s?.bounds) return null;
+  return [
+    [s.bounds.sw[0], s.bounds.sw[1]],
+    [s.bounds.ne[0], s.bounds.ne[1]],
+  ];
+}
+
+/**
  * Returns scene centroid markers for the overlay map.
  * Each entry: { sceneId, shortId, lat, lng }
  */
