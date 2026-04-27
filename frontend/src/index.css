@@ -1,0 +1,41 @@
+/* Leaflet MUST be imported before Tailwind directives */
+@import "leaflet/dist/leaflet.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    background: #f8f9fa;
+    color: #0f172a;
+  }
+}
+
+/* Leaflet map fills container */
+.leaflet-container { width: 100%; height: 100%; background: #0d1117; }
+.leaflet-control-zoom { border: none !important; border-radius: 8px !important; overflow: hidden; }
+.leaflet-control-zoom a {
+  background: #fff !important;
+  color: #374151 !important;
+  border: none !important;
+  font-size: 18px !important;
+  width: 36px !important;
+  height: 36px !important;
+  line-height: 36px !important;
+}
+
+/* Slim scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+
+/* Range slider */
+input[type=range] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 99px; outline: none; }
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #3b82f6; cursor: pointer;
+}
