@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { MapContainer, TileLayer, ImageOverlay, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, ImageOverlay, CircleMarker, Polygon, Tooltip, useMap } from "react-leaflet";
 import { useAppContext } from "../context/AppContext.jsx";
-import { postQuery } from "../services/api.js";
+import { postQuery, getDamageData } from "../services/api.js";
 import {
   loadHarveyData,
   getSceneOptions,
   getScenePreview,
   getSceneBounds,
   getSceneCentroids,
+  getSceneBuildingUids,
+  loadScenePolygons,
   DAMAGE_COLOR,
   DAMAGE_LABEL,
 } from "../data/harveyAdapter.js";
@@ -174,17 +176,6 @@ function LeftPanel({ sceneOptions, basemap, setBasemap }) {
       <div className="flex flex-col px-4 py-4 space-y-5 text-sm flex-1 min-h-0 overflow-hidden">
         <ModeToggle />
         <BasemapToggle basemap={basemap} setBasemap={setBasemap} />
-        {imageryLayer === "overlay" && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-3 space-y-1.5">
-            <div className="flex items-center gap-1.5">
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-amber-500 shrink-0"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-              <p className="text-[11px] font-semibold text-amber-700">VLM Damage Overlay</p>
-            </div>
-            <p className="text-[10px] text-amber-600 leading-snug">
-              Connect backend to activate damage classification on the map.
-            </p>
-          </div>
-        )}
         <HarveySceneSelector sceneOptions={sceneOptions} />
       </div>
     </div>
@@ -205,6 +196,60 @@ function GeoMapWorkspace({ sceneOptions, basemap }) {
     () => (harveyData && selectedSceneId ? getSceneBounds(harveyData, selectedSceneId) : null),
     [harveyData, selectedSceneId]
   );
+
+  const sceneCentroids = useMemo(
+    () => (harveyData ? getSceneCentroids(harveyData) : []),
+    [harveyData]
+  );
+
+  // All Harvey predictions — fetched once when overlay mode is first entered
+  const allPredictionsRef = useRef(null);
+  const [predictionsReady, setPredictionsReady] = useState(false);
+
+  useEffect(() => {
+    if (imageryLayer !== "overlay") return;
+    if (allPredictionsRef.current !== null) return; // already fetched
+    allPredictionsRef.current = []; // mark as in-flight
+    getDamageData({ disaster: "hurricane-harvey" })
+      .then((geojson) => {
+        allPredictionsRef.current = geojson?.features ?? [];
+        setPredictionsReady(true);
+      })
+      .catch(() => {
+        allPredictionsRef.current = [];
+        setPredictionsReady(true);
+      });
+  }, [imageryLayer]);
+
+  // Per-scene damage state: { predictions: Feature[], polygons: { uid: [[lat,lng],...] } }
+  const [damageFeatures, setDamageFeatures] = useState({ predictions: [], polygons: {} });
+  const [damageLoading, setDamageLoading] = useState(false);
+
+  useEffect(() => {
+    if (imageryLayer !== "overlay" || !selectedSceneId || !harveyData) {
+      setDamageFeatures({ predictions: [], polygons: {} });
+      return;
+    }
+    // Wait for the global predictions fetch to complete
+    if (!predictionsReady && allPredictionsRef.current === null) return;
+
+    let cancelled = false;
+    setDamageLoading(true);
+
+    const sceneUids = getSceneBuildingUids(harveyData, selectedSceneId);
+    const scenePredictions = (allPredictionsRef.current ?? []).filter(
+      (f) => sceneUids.has(f.properties.external_id)
+    );
+
+    loadScenePolygons(selectedSceneId).then((polygons) => {
+      if (!cancelled) {
+        setDamageFeatures({ predictions: scenePredictions, polygons });
+        setDamageLoading(false);
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [imageryLayer, selectedSceneId, harveyData, predictionsReady]);
 
   // Overlay mode shows post imagery; pre/post modes show their respective image
   const imgSrc = imageryLayer === "pre" ? preview?.preImagePath : preview?.postImagePath;
@@ -285,12 +330,90 @@ function GeoMapWorkspace({ sceneOptions, basemap }) {
             />
           )}
 
+          {/* Scene location markers — visible at all zoom levels */}
+          {sceneCentroids.map((sc) => {
+            const isSelected = sc.sceneId === selectedSceneId;
+            return (
+              <CircleMarker
+                key={sc.sceneId}
+                center={[sc.lat, sc.lng]}
+                radius={isSelected ? 10 : 6}
+                pathOptions={{
+                  fillColor: isSelected ? "#2563eb" : "#93c5fd",
+                  color: isSelected ? "#1d4ed8" : "#3b82f6",
+                  weight: isSelected ? 2.5 : 1.5,
+                  fillOpacity: isSelected ? 0.95 : 0.6,
+                }}
+                eventHandlers={{ click: () => setSelectedSceneId(sc.sceneId) }}>
+                <Tooltip direction="top" offset={[0, -8]} opacity={0.95}>
+                  <span className="text-xs font-semibold">Scene #{sc.shortId}</span>
+                </Tooltip>
+              </CircleMarker>
+            );
+          })}
+
           {/* Fly to scene bounds when selection changes */}
           {bounds && <FlyToBounds bounds={bounds} />}
 
-          {/* Overlay mode: damage polygon slot — populated by backend once connected */}
-          {/* TODO: render backend VLM damage polygons here */}
+          {/* VLM damage polygons — overlay mode only */}
+          {imageryLayer === "overlay" && damageFeatures.predictions.map((f, i) => {
+            const { damage_class, confidence, color, rationale } = f.properties;
+            const uid = f.properties.external_id;
+            const label = damage_class?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+            const fill = color ?? "#94a3b8";
+            const tooltip = (
+              <Tooltip sticky opacity={0.97}>
+                <div className="text-xs space-y-0.5">
+                  <p className="font-semibold">{label}</p>
+                  {confidence != null && (
+                    <p className="text-gray-500">Confidence: {Math.round(confidence * 100)}%</p>
+                  )}
+                  {rationale && (
+                    <p className="text-gray-400 max-w-[180px] leading-snug">{rationale}</p>
+                  )}
+                </div>
+              </Tooltip>
+            );
+
+            const positions = damageFeatures.polygons[uid];
+            if (positions?.length >= 3) {
+              return (
+                <Polygon
+                  key={uid ?? i}
+                  positions={positions}
+                  pathOptions={{ fillColor: fill, color: "#fff", weight: 1.5, fillOpacity: 0.4 }}>
+                  {tooltip}
+                </Polygon>
+              );
+            }
+            // Fallback: if polygon not available, render a point
+            const [lng, lat] = f.geometry.coordinates;
+            return (
+              <CircleMarker
+                key={uid ?? i}
+                center={[lat, lng]}
+                radius={6}
+                pathOptions={{ fillColor: fill, color: "#fff", weight: 1.5, fillOpacity: 0.9 }}>
+                {tooltip}
+              </CircleMarker>
+            );
+          })}
         </MapContainer>
+
+        {/* Damage data loading indicator */}
+        {damageLoading && (
+          <div className="absolute top-3 right-3 z-[1000] bg-white rounded-lg shadow border border-gray-100 px-3 py-2 flex items-center gap-2 text-xs text-gray-500">
+            <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            Loading damage data…
+          </div>
+        )}
+
+        {/* Damage polygon count badge */}
+        {imageryLayer === "overlay" && !damageLoading && damageFeatures.predictions.length > 0 && (
+          <div className="absolute top-3 right-3 z-[1000] bg-white rounded-lg shadow border border-gray-100 px-3 py-2 text-xs text-gray-600">
+            <span className="font-semibold text-gray-800">{damageFeatures.predictions.length}</span> assessed properties
+          </div>
+        )}
 
         {/* No-bounds notice for the 9 unannotated scenes */}
         {selectedSceneId && !bounds && (
@@ -299,16 +422,6 @@ function GeoMapWorkspace({ sceneOptions, basemap }) {
           </div>
         )}
 
-        {/* Overlay mode banner */}
-        {imageryLayer === "overlay" && (
-          <div className="absolute bottom-5 left-5 z-[1000] bg-white rounded-xl shadow-lg border border-amber-200 p-3 text-xs max-w-[200px]">
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-              <p className="font-semibold text-gray-700">Overlay Mode</p>
-            </div>
-            <p className="text-gray-500 leading-snug">Post-disaster imagery shown. VLM damage overlay activates when backend is connected.</p>
-          </div>
-        )}
       </div>
 
       {/* Bottom navigation bar */}

@@ -99,11 +99,37 @@ export function getSceneCentroids(data) {
     }));
 }
 
-// ─── Overlay/future backend helpers ─────────────────────────────────────────
+// ─── Overlay/polygon helpers ─────────────────────────────────────────────────
 
 /** Get all building markers for a given phase ("pre" | "post"). For overlay/future use. */
 export function getMarkersByPhase(data, phase) {
   return phase === "pre" ? data.preMarkers : data.postMarkers;
+}
+
+/**
+ * Returns a Set of building UIDs belonging to a scene (from postMarkers).
+ * Used to filter backend predictions to only those in the selected scene.
+ */
+export function getSceneBuildingUids(data, sceneId) {
+  return new Set(
+    (data.postMarkers ?? [])
+      .filter((m) => m.sceneId === sceneId)
+      .map((m) => m.uid)
+  );
+}
+
+/**
+ * Lazily fetches the pre-built polygon map for a scene.
+ * Returns { uid: [[lat, lng], ...] } — an empty object if the file is missing.
+ */
+export async function loadScenePolygons(sceneId) {
+  try {
+    const res = await fetch(`/harvey/scene-polygons/${sceneId}.json`);
+    if (!res.ok) return {};
+    return res.json();
+  } catch {
+    return {};
+  }
 }
 
 // ─── Damage display constants ────────────────────────────────────────────────
