@@ -1,0 +1,61 @@
+core_id,building_index,building_uid,ground_truth_label,predicted_label,match,reason,parse_ok,error,included_in_metrics,predicted_label_valid,model_used,pre_image,post_image,label_json,raw_response
+hurricane-harvey_00000003,0,4f994029-6628-438a-9aba-b5c3241cda6b,major_damage,no_damage,False,"The building's structural integrity remains intact, and the visible changes on the roof are consistent with new construction or modification, not disaster damage.",True,,True,True,gemini-2.5-flash,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_pre_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_post_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/labels/hurricane-harvey_00000003_post_disaster.json,"```json
+{
+  ""label"": ""no_damage"",
+  ""reason"": ""The building's structural integrity remains intact, and the visible changes on the roof are consistent with new construction or modification, not disaster damage.""
+}
+```"
+hurricane-harvey_00000003,1,6ffd4931-2eef-4066-a43d-181c1ee279e3,minor_damage,destroyed,False,"The building is no longer visible in the after image, having been completely replaced by ground cover.",True,,True,True,gemini-2.5-flash,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_pre_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_post_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/labels/hurricane-harvey_00000003_post_disaster.json,"```json
+{
+  ""label"": ""destroyed"",
+  ""reason"": ""The building is no longer visible in the after image, having been completely replaced by ground cover.""
+}
+```"
+hurricane-harvey_00000003,2,8d64bc46-4a78-4d76-8936-5150c7084ca8,minor_damage,destroyed,False,"The building and its roof structures are completely gone in the after image, with the area now covered by vegetation and standing water.",True,,True,True,gemini-2.5-flash,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_pre_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_post_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/labels/hurricane-harvey_00000003_post_disaster.json,"```json
+{
+  ""label"": ""destroyed"",
+  ""reason"": ""The building and its roof structures are completely gone in the after image, with the area now covered by vegetation and standing water.""
+}
+```"
+hurricane-harvey_00000003,3,f28146ee-4813-4006-81ba-5636c24d14af,minor_damage,major_damage,False,"There is extensive debris covering a large portion of the building's roof in the after image, indicating significant structural damage to the roof.",True,,True,True,gemini-2.5-flash,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_pre_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_post_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/labels/hurricane-harvey_00000003_post_disaster.json,"```json
+{
+  ""label"": ""major_damage"",
+  ""reason"": ""There is extensive debris covering a large portion of the building's roof in the after image, indicating significant structural damage to the roof.""
+}
+```"
+hurricane-harvey_00000003,4,9bc75a7c-eb60-48c3-8b5b-c98dded9e428,minor_damage,destroyed,False,"The building is completely obscured by dense foliage or debris in the after image, rendering it no longer visible.",True,,True,True,gemini-2.5-flash,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_pre_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_post_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/labels/hurricane-harvey_00000003_post_disaster.json,"```json
+{
+  ""label"": ""destroyed"",
+  ""reason"": ""The building is completely obscured by dense foliage or debris in the after image, rendering it no longer visible.""
+}
+```"
+hurricane-harvey_00000003,5,a7c78e7b-bf31-43f8-b324-0b311b23205f,no_damage,no_damage,True,"The building's structure, roof, and surrounding features appear completely intact and unchanged between the before and after images.",True,,True,True,gemini-2.5-flash,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_pre_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_post_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/labels/hurricane-harvey_00000003_post_disaster.json,"```json
+{
+  ""label"": ""no_damage"",
+  ""reason"": ""The building's structure, roof, and surrounding features appear completely intact and unchanged between the before and after images.""
+}
+```"
+hurricane-harvey_00000003,6,63ef12ea-d780-4814-bb91-ea33cf0d6353,no_damage,minor_damage,False,"The building's main structure remains intact, but there are visible changes and debris on the roof and immediate surrounding area.",True,,True,True,gemini-2.5-flash,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_pre_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_post_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/labels/hurricane-harvey_00000003_post_disaster.json,"```json
+{
+  ""label"": ""minor_damage"",
+  ""reason"": ""The building's main structure remains intact, but there are visible changes and debris on the roof and immediate surrounding area.""
+}
+```"
+hurricane-harvey_00000003,7,d99c8528-f9b1-42f2-b996-1d6d6f4902e1,no_damage,destroyed,False,"The building is completely gone and no longer visible in the after image, replaced by what appears to be vegetation or debris.",True,,True,True,gemini-2.5-flash,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_pre_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_post_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/labels/hurricane-harvey_00000003_post_disaster.json,"```json
+{
+  ""label"": ""destroyed"",
+  ""reason"": ""The building is completely gone and no longer visible in the after image, replaced by what appears to be vegetation or debris.""
+}
+```"
+hurricane-harvey_00000003,8,03623244-1d89-426c-9f1e-9d313124ec7b,major_damage,minor_damage,False,"The building's main structure remains intact, but there is clear visible damage to the roof, including missing material and debris.",True,,True,True,gemini-2.5-flash,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_pre_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_post_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/labels/hurricane-harvey_00000003_post_disaster.json,"```json
+{
+  ""label"": ""minor_damage"",
+  ""reason"": ""The building's main structure remains intact, but there is clear visible damage to the roof, including missing material and debris.""
+}
+```"
+hurricane-harvey_00000003,9,44521f03-0b69-4282-a1c3-83eef7afc3e7,no_damage,destroyed,False,"The building is completely absent in the after image, indicating total collapse or removal.",True,,True,True,gemini-2.5-flash,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_pre_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/images/hurricane-harvey_00000003_post_disaster.png,/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/labels/hurricane-harvey_00000003_post_disaster.json,"```json
+{
+  ""label"": ""destroyed"",
+  ""reason"": ""The building is completely absent in the after image, indicating total collapse or removal.""
+}
+```"

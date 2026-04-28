@@ -1,0 +1,79 @@
+{
+  "manifest_path": "/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/harvey_manifest.csv",
+  "model_used": "gemini-2.5-flash",
+  "label_order": [
+    "no_damage",
+    "minor_damage",
+    "major_damage",
+    "destroyed"
+  ],
+  "timestamp_utc": "2026-03-06T01:12:01.587767+00:00",
+  "num_rows_total": 10,
+  "num_rows_scored": 2,
+  "num_rows_prediction_error": 8,
+  "num_rows_invalid_prediction": 8,
+  "num_rows_unknown_ground_truth": 2,
+  "most_common_error_pairs": [
+    {
+      "ground_truth": "no_damage",
+      "predicted": "minor_damage",
+      "count": 1
+    }
+  ],
+  "accuracy": 0.5,
+  "macro_precision": 0.25,
+  "macro_recall": 0.25,
+  "macro_f1": 0.25,
+  "per_class": {
+    "no_damage": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 1
+    },
+    "minor_damage": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0
+    },
+    "major_damage": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0
+    },
+    "destroyed": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    }
+  },
+  "confusion_matrix": [
+    [
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      1
+    ]
+  ]
+}

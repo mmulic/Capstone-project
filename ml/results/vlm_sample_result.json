@@ -1,0 +1,18 @@
+{
+  "core_id": "hurricane-harvey_00000033",
+  "ground_truth_label": "major_damage",
+  "gt_buildings_count": 25,
+  "predicted_label": "major_damage",
+  "match": true,
+  "buildings_visible": 33,
+  "damage_counts": {
+    "no_damage": 11,
+    "minor_damage": 0,
+    "major_damage": 22,
+    "destroyed": 0
+  },
+  "reason": "Widespread major flooding significantly impacted many buildings, though no complete structural collapse or destruction is visible.",
+  "model_used": "gemini-2.5-flash",
+  "parse_ok": true,
+  "error": null
+}

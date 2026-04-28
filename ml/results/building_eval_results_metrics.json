@@ -1,0 +1,102 @@
+{
+  "model_used": "gemini-2.5-flash",
+  "label_order": [
+    "no_damage",
+    "minor_damage",
+    "major_damage",
+    "destroyed"
+  ],
+  "timestamp_utc": "2026-04-09T22:10:15.304828+00:00",
+  "num_buildings_total": 10,
+  "num_buildings_scored": 10,
+  "num_buildings_error": 0,
+  "num_buildings_invalid_prediction": 0,
+  "most_common_error_pairs": [
+    {
+      "ground_truth": "minor_damage",
+      "predicted": "destroyed",
+      "count": 3
+    },
+    {
+      "ground_truth": "no_damage",
+      "predicted": "destroyed",
+      "count": 2
+    },
+    {
+      "ground_truth": "major_damage",
+      "predicted": "no_damage",
+      "count": 1
+    },
+    {
+      "ground_truth": "minor_damage",
+      "predicted": "major_damage",
+      "count": 1
+    },
+    {
+      "ground_truth": "no_damage",
+      "predicted": "minor_damage",
+      "count": 1
+    },
+    {
+      "ground_truth": "major_damage",
+      "predicted": "minor_damage",
+      "count": 1
+    }
+  ],
+  "accuracy": 0.1,
+  "macro_precision": 0.125,
+  "macro_recall": 0.0625,
+  "macro_f1": 0.08333333333333333,
+  "per_class": {
+    "no_damage": {
+      "precision": 0.5,
+      "recall": 0.25,
+      "f1": 0.3333333333333333,
+      "support": 4
+    },
+    "minor_damage": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 4
+    },
+    "major_damage": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 2
+    },
+    "destroyed": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0
+    }
+  },
+  "confusion_matrix": [
+    [
+      1,
+      1,
+      0,
+      2
+    ],
+    [
+      0,
+      0,
+      1,
+      3
+    ],
+    [
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0
+    ]
+  ]
+}
