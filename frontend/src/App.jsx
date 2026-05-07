@@ -3,6 +3,7 @@ import LandingPage from "./pages/LandingPage.jsx";
 import OverviewPage from "./pages/OverviewPage.jsx";
 import MapWorkspace from "./pages/MapWorkspace.jsx";
 import MetricsPage from "./pages/MetricsPage.jsx";
+import DatasetsPage from "./pages/DatasetsPage.jsx";
 import SidebarNav from "./components/SidebarNav.jsx";
 
 const Placeholder = ({ title }) => (
@@ -22,7 +23,7 @@ const AppContent = () => {
       {currentPage === "overview"  && <OverviewPage />}
       {currentPage === "map"       && <MapWorkspace />}
       {currentPage === "metrics"   && <MetricsPage />}
-      {currentPage === "datasets"  && <Placeholder title="Datasets" />}
+      {currentPage === "datasets"  && <DatasetsPage />}
       {currentPage === "settings"  && <Placeholder title="Settings" />}
     </div>
   );

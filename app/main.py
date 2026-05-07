@@ -5,6 +5,7 @@ from app.core.config import get_settings
 from app.routers import health, ingest
 from app.routers.geojson import router as geojson_router
 from app.routers.batch_ingest import router as batch_ingest_router
+from app.routers.vlm import router as vlm_router
 from app.routers.stubs import (
     predict_router, results_router, chat_router, evaluate_router, auth_router
 )
@@ -42,6 +43,9 @@ def create_app() -> FastAPI:
     app.include_router(ingest.router)
     app.include_router(geojson_router)
     app.include_router(batch_ingest_router)
+
+    # Sprint 3: VLM Analysis (implemented)
+    app.include_router(vlm_router)
 
     # Sprints 3-5: Stub endpoints (visible in Swagger, implemented later)
     app.include_router(predict_router)

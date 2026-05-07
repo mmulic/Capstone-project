@@ -54,4 +54,20 @@ export async function getMLEvaluation(jobId) {
   return data;
 }
 
+/**
+ * POST /api/vlm/analyze — Send a pre/post image pair to Gemini for per-building
+ * damage assessment. Returns { buildings, scene_summary, model_used }.
+ * Content-Type is left unset so axios attaches the multipart boundary automatically.
+ */
+export async function analyzeScene(postImage) {
+  const formData = new FormData();
+  formData.append("post_image", postImage);
+
+  const { data } = await api.post("/api/vlm/analyze", formData, {
+    headers: { "Content-Type": undefined },
+    timeout: 120000,
+  });
+  return data;
+}
+
 export default api;
