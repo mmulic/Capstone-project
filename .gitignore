@@ -28,3 +28,8 @@ pgdata/
 .coverage
 htmlcov/
 .pytest_cache/
+
+# ML data (large image files — do not commit)
+ml/data/
+ml_env/
+ml/results/
