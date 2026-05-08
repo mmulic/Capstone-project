@@ -9,8 +9,8 @@ import os
 import re
 import glob
 
-HARVEY_JSON_DIR = "/Users/aeinayet/Downloads/drive-download-20260402T181530Z-3-001/Harvey json"
-OUT_FILE = "/Users/aeinayet/PersonalProjects/Dashboard/public/harvey/harvey-data.json"
+HARVEY_JSON_DIR = "/Users/muhamed/Personal Repos/capstone/Capstone-project/ml/data/test/labels"
+OUT_FILE = "/Users/muhamed/Personal Repos/capstone/Capstone-project/frontend/public/harvey/harvey-data.json"
 
 DAMAGE_MAP = {
     "no-damage": "none",
