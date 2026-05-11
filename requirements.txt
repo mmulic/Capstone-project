@@ -34,3 +34,5 @@ ruff==0.6.9
 
 # ML bridge — sync psycopg for Supabase reads
 psycopg[binary]==3.2.3
+# Google Gemini API
+google-generativeai>=0.8.0

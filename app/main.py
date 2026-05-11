@@ -15,6 +15,7 @@ from app.routers.evaluate import router as evaluate_router
 from app.routers.auth import router as auth_router
 from app.routers.ml_bridge import router as ml_bridge_router
 from app.routers.frontend_compat import router as frontend_compat_router
+from app.routers.vlm_analyze import router as vlm_analyze_router
 
 settings = get_settings()
 configure_logging(level="DEBUG" if settings.debug else "INFO")
@@ -67,6 +68,9 @@ def create_app() -> FastAPI:
 
     # Bridge to ML teammate's Supabase database
     app.include_router(ml_bridge_router)
+
+    # VLM analysis — Gemini-powered image damage assessment
+    app.include_router(vlm_analyze_router)
 
     # Frontend compatibility aliases (no /api prefix — frontend calls these at root)
     app.include_router(frontend_compat_router)
