@@ -1,14 +1,28 @@
 services:
+  # ── React Frontend (Nginx) ───────────────────────────
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../disaster-assessment-backend/deploy/frontend.Dockerfile
+      args:
+        # Frontend talks to backend via the EC2 public IP / domain
+        # In production, use a relative URL or environment-driven value
+        VITE_API_BASE_URL: "http://3.20.234.190:8000"
+    container_name: disaster-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+    restart: unless-stopped
+
   # ── FastAPI Backend ──────────────────────────────────
   app:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile  # production Dockerfile
     container_name: disaster-api
     ports:
       - "8000:8000"
-    volumes:
-      - .:/app
     env_file:
       - .env
     depends_on:
@@ -34,6 +48,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
 volumes:
   pgdata:
