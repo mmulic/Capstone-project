@@ -99,29 +99,29 @@ const MetricsPage = () => {
   const kpis = evaluation ? [
     {
       label: "Model Accuracy",
-      value: pct(evaluation.overall_accuracy),
+      value: pct(evaluation?.overall_accuracy),
       sub: "Overall correct predictions",
     },
     {
       label: "Macro Precision",
-      value: pct(evaluation.macro_precision ?? evaluation.per_class
-        ? Object.values(evaluation.per_class).reduce((s, c) => s + (c.precision ?? 0), 0) / Object.keys(evaluation.per_class).length
+      value: pct(evaluation?.macro_precision ?? evaluation?.per_class
+        ? Object.values(evaluation?.per_class || {}).reduce((s, c) => s + (c.precision ?? 0), 0) / Object.keys(evaluation?.per_class || {}).length
         : null),
       sub: "Avg across damage classes",
     },
     {
       label: "Macro Recall",
-      value: pct(evaluation.macro_recall ?? evaluation.per_class
-        ? Object.values(evaluation.per_class).reduce((s, c) => s + (c.recall ?? 0), 0) / Object.keys(evaluation.per_class).length
+      value: pct(evaluation?.macro_recall ?? evaluation?.per_class
+        ? Object.values(evaluation?.per_class || {}).reduce((s, c) => s + (c.recall ?? 0), 0) / Object.keys(evaluation?.per_class || {}).length
         : null),
       sub: "Sensitivity metric",
     },
     {
       label: "Macro F1",
-      value: evaluation.macro_f1 != null
-        ? evaluation.macro_f1.toFixed(3)
-        : pct(evaluation.per_class
-          ? Object.values(evaluation.per_class).reduce((s, c) => s + (c.f1 ?? 0), 0) / Object.keys(evaluation.per_class).length
+      value: evaluation?.macro_f1 != null
+        ? evaluation?.macro_f1.toFixed(3)
+        : pct(evaluation?.per_class
+          ? Object.values(evaluation?.per_class || {}).reduce((s, c) => s + (c.f1 ?? 0), 0) / Object.keys(evaluation?.per_class || {}).length
           : null),
       sub: "Harmonic mean P/R",
     },
@@ -130,7 +130,7 @@ const MetricsPage = () => {
   // ── Confusion matrix from evaluation ────────────────────────────────────
   const confusionMatrix = evaluation?.confusion_matrix ?? null;
   const matrixLabels = confusionMatrix
-    ? (evaluation.class_labels ?? DAMAGE_LABELS.slice(0, confusionMatrix.length))
+    ? (evaluation?.class_labels ?? DAMAGE_LABELS.slice(0, confusionMatrix.length))
     : DAMAGE_LABELS;
 
   return (
@@ -326,7 +326,7 @@ const MetricsPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(evaluation.per_class).map(([cls, m]) => (
+                  {Object.entries(evaluation?.per_class || {}).map(([cls, m]) => (
                     <tr key={cls} className="border-b border-gray-50 hover:bg-gray-50">
                       <td className="py-2.5 pr-4 font-medium text-gray-800 capitalize">{cls.replace(/_/g, " ")}</td>
                       <td className="text-right py-2.5 px-4 text-gray-600">{pct(m.precision)}</td>
