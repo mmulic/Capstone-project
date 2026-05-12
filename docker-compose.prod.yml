@@ -7,7 +7,7 @@ services:
       args:
         # Frontend talks to backend via the EC2 public IP / domain
         # In production, use a relative URL or environment-driven value
-        VITE_API_BASE_URL: ""
+        VITE_API_BASE_URL: "http://3.20.234.190:8000"
     container_name: disaster-frontend
     ports:
       - "80:80"
