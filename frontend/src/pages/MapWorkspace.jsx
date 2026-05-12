@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { MapContainer, TileLayer, ImageOverlay, CircleMarker, Polygon, Tooltip, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, ImageOverlay, CircleMarker, Polygon, Tooltip, Pane, useMap } from "react-leaflet";
 import { useAppContext } from "../context/AppContext.jsx";
 import { postQuery, getDamageData } from "../services/api.js";
 import {
   loadHarveyData,
   getSceneOptions,
   getScenePreview,
-  getSceneBounds,
   getSceneCentroids,
-  getSceneBuildingUids,
+  getSceneImageOverlays,
   loadScenePolygons,
   DAMAGE_COLOR,
   DAMAGE_LABEL,
@@ -53,12 +52,12 @@ function LoadingOverlay({ message }) {
   );
 }
 
-// Flies the map to the given bounds whenever bounds changes.
-function FlyToBounds({ bounds }) {
+// Flies the map to the scene centroid whenever the selected scene changes.
+function FlyToCentroid({ centroid }) {
   const map = useMap();
   useEffect(() => {
-    if (bounds) map.fitBounds(bounds, { animate: true, padding: [20, 20] });
-  }, [bounds, map]);
+    if (centroid) map.flyTo([centroid.lat, centroid.lng], 15, { animate: true });
+  }, [centroid, map]);
   return null;
 }
 
@@ -70,10 +69,14 @@ function ModeToggle() {
     <div>
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">View Mode</p>
       <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-        {["pre", "post", "overlay"].map((mode) => (
-          <button key={mode} onClick={() => setImageryLayer(mode)}
-            className={`flex-1 py-1.5 text-xs font-medium capitalize transition-colors ${imageryLayer === mode ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-50"}`}>
-            {mode}
+        {[
+          { id: "pre",     label: "Pre"     },
+          { id: "post",    label: "Post"    },
+          { id: "overlay", label: "Overlay" },
+        ].map(({ id, label }) => (
+          <button key={id} onClick={() => setImageryLayer(id)}
+            className={`flex-1 py-1.5 text-xs font-medium transition-colors ${imageryLayer === id ? "bg-blue-600 text-white" : "text-gray-500 hover:bg-gray-50"}`}>
+            {label}
           </button>
         ))}
       </div>
@@ -192,34 +195,20 @@ function GeoMapWorkspace({ sceneOptions, basemap }) {
     [harveyData, selectedSceneId]
   );
 
-  const bounds = useMemo(
-    () => (harveyData && selectedSceneId ? getSceneBounds(harveyData, selectedSceneId) : null),
-    [harveyData, selectedSceneId]
-  );
-
   const sceneCentroids = useMemo(
     () => (harveyData ? getSceneCentroids(harveyData) : []),
     [harveyData]
   );
 
-  // All Harvey predictions — fetched once when overlay mode is first entered
-  const allPredictionsRef = useRef(null);
-  const [predictionsReady, setPredictionsReady] = useState(false);
-
-  useEffect(() => {
-    if (imageryLayer !== "overlay") return;
-    if (allPredictionsRef.current !== null) return; // already fetched
-    allPredictionsRef.current = []; // mark as in-flight
-    getDamageData({ disaster: "hurricane-harvey" })
-      .then((geojson) => {
-        allPredictionsRef.current = geojson?.features ?? [];
-        setPredictionsReady(true);
-      })
-      .catch(() => {
-        allPredictionsRef.current = [];
-        setPredictionsReady(true);
-      });
-  }, [imageryLayer]);
+  // Image overlays for each phase — all scenes with valid bounds
+  const preImageOverlays = useMemo(
+    () => (harveyData ? getSceneImageOverlays(harveyData, "pre") : []),
+    [harveyData]
+  );
+  const postImageOverlays = useMemo(
+    () => (harveyData ? getSceneImageOverlays(harveyData, "post") : []),
+    [harveyData]
+  );
 
   // Per-scene damage state: { predictions: Feature[], polygons: { uid: [[lat,lng],...] } }
   const [damageFeatures, setDamageFeatures] = useState({ predictions: [], polygons: {} });
@@ -230,30 +219,23 @@ function GeoMapWorkspace({ sceneOptions, basemap }) {
       setDamageFeatures({ predictions: [], polygons: {} });
       return;
     }
-    // Wait for the global predictions fetch to complete
-    if (!predictionsReady && allPredictionsRef.current === null) return;
 
     let cancelled = false;
     setDamageLoading(true);
 
-    const sceneUids = getSceneBuildingUids(harveyData, selectedSceneId);
-    const scenePredictions = (allPredictionsRef.current ?? []).filter(
-      (f) => sceneUids.has(f.properties.external_id)
-    );
-
-    loadScenePolygons(selectedSceneId).then((polygons) => {
+    Promise.all([
+      getDamageData({ sceneId: selectedSceneId }).catch(() => null),
+      loadScenePolygons(selectedSceneId),
+    ]).then(([damageResponse, geoPolygons]) => {
       if (!cancelled) {
-        setDamageFeatures({ predictions: scenePredictions, polygons });
+        const predictions = damageResponse?.features ?? [];
+        setDamageFeatures({ predictions, polygons: geoPolygons });
         setDamageLoading(false);
       }
     });
 
     return () => { cancelled = true; };
-  }, [imageryLayer, selectedSceneId, harveyData, predictionsReady]);
-
-  // Overlay mode shows post imagery; pre/post modes show their respective image
-  const imgSrc = imageryLayer === "pre" ? preview?.preImagePath : preview?.postImagePath;
-  const imgDate = imageryLayer === "pre" ? preview?.preDate : preview?.postDate;
+  }, [imageryLayer, selectedSceneId, harveyData]);
 
   const currentIdx = sceneOptions.findIndex((s) => s.sceneId === selectedSceneId);
   const prevScene = currentIdx > 0 ? sceneOptions[currentIdx - 1] : null;
@@ -277,40 +259,26 @@ function GeoMapWorkspace({ sceneOptions, basemap }) {
           {preview && (
             <>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-                imageryLayer === "pre"
-                  ? "bg-blue-500/20 text-blue-700 border border-blue-500/30"
+                imageryLayer === "overlay"
+                  ? "bg-purple-500/20 text-purple-700 border border-purple-500/30"
                   : imageryLayer === "post"
-                  ? "bg-orange-500/20 text-orange-700 border border-orange-500/30"
-                  : "bg-purple-500/20 text-purple-700 border border-purple-500/30"
+                  ? "bg-emerald-500/20 text-emerald-700 border border-emerald-500/30"
+                  : "bg-blue-500/20 text-blue-700 border border-blue-500/30"
               }`}>
-                {imageryLayer === "overlay" ? "overlay" : `${imageryLayer}-disaster`}
+                {imageryLayer === "overlay" ? "Overlay" : imageryLayer === "post" ? "Post" : "Pre"}
               </span>
               <span className="text-sm font-semibold text-gray-800">Scene #{preview.shortId}</span>
-              {imgDate && <span className="text-xs text-gray-400">{imgDate}</span>}
             </>
           )}
           {!preview && (
-            <span className="text-sm text-gray-400">Select a scene to view imagery</span>
+            <span className="text-sm text-gray-400">Select a scene</span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {preview && (
-            <span className="text-xs text-gray-400">
-              {currentIdx + 1} / {sceneOptions.length}
-            </span>
-          )}
-          {/* Pre / Post quick-toggle in the bar */}
-          {preview && imageryLayer !== "overlay" && (
-            <div className="flex rounded border border-gray-200 overflow-hidden">
-              {["pre", "post"].map((p) => (
-                <button key={p} onClick={() => setImageryLayer(p)}
-                  className={`text-[10px] font-bold px-2.5 py-1 uppercase tracking-wider transition-colors ${imageryLayer === p ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-700"}`}>
-                  {p}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {preview && (
+          <span className="text-xs text-gray-400">
+            {currentIdx + 1} / {sceneOptions.length}
+          </span>
+        )}
       </div>
 
       {/* Map */}
@@ -320,15 +288,28 @@ function GeoMapWorkspace({ sceneOptions, basemap }) {
             <TileLayer key={`${basemap}-${i}`} url={layer.url} attribution={layer.attribution} />
           ))}
 
-          {/* Geo-referenced scene imagery */}
-          {bounds && imgSrc && (
+          {/* Custom pane for damage polygons — sits above imagery (overlayPane z=400) but below scene dots (markerPane z=600) */}
+          <Pane name="damagePane" style={{ zIndex: 450 }} />
+
+          {/* Satellite imagery layers — pre images in Pre mode, post images in Post/Overlay modes */}
+          {imageryLayer === "pre" && preImageOverlays.map((ov) => (
             <ImageOverlay
-              key={`${selectedSceneId}-${imageryLayer}`}
-              url={imgSrc}
-              bounds={bounds}
+              key={`pre-${ov.sceneId}`}
+              url={ov.url}
+              bounds={ov.bounds}
               opacity={1}
+              zIndex={200}
             />
-          )}
+          ))}
+          {(imageryLayer === "post" || imageryLayer === "overlay") && postImageOverlays.map((ov) => (
+            <ImageOverlay
+              key={`post-${ov.sceneId}`}
+              url={ov.url}
+              bounds={ov.bounds}
+              opacity={1}
+              zIndex={200}
+            />
+          ))}
 
           {/* Scene location markers — visible at all zoom levels */}
           {sceneCentroids.map((sc) => {
@@ -338,6 +319,7 @@ function GeoMapWorkspace({ sceneOptions, basemap }) {
                 key={sc.sceneId}
                 center={[sc.lat, sc.lng]}
                 radius={isSelected ? 10 : 6}
+                pane="markerPane"
                 pathOptions={{
                   fillColor: isSelected ? "#2563eb" : "#93c5fd",
                   color: isSelected ? "#1d4ed8" : "#3b82f6",
@@ -352,8 +334,8 @@ function GeoMapWorkspace({ sceneOptions, basemap }) {
             );
           })}
 
-          {/* Fly to scene bounds when selection changes */}
-          {bounds && <FlyToBounds bounds={bounds} />}
+          {/* Fly to scene centroid when selection changes */}
+          <FlyToCentroid centroid={preview?.centroid} />
 
           {/* VLM damage polygons — overlay mode only */}
           {imageryLayer === "overlay" && damageFeatures.predictions.map((f, i) => {
@@ -381,6 +363,7 @@ function GeoMapWorkspace({ sceneOptions, basemap }) {
                 <Polygon
                   key={uid ?? i}
                   positions={positions}
+                  pane="damagePane"
                   pathOptions={{ fillColor: fill, color: "#fff", weight: 1.5, fillOpacity: 0.4 }}>
                   {tooltip}
                 </Polygon>
@@ -393,6 +376,7 @@ function GeoMapWorkspace({ sceneOptions, basemap }) {
                 key={uid ?? i}
                 center={[lat, lng]}
                 radius={6}
+                pane="damagePane"
                 pathOptions={{ fillColor: fill, color: "#fff", weight: 1.5, fillOpacity: 0.9 }}>
                 {tooltip}
               </CircleMarker>
@@ -415,10 +399,21 @@ function GeoMapWorkspace({ sceneOptions, basemap }) {
           </div>
         )}
 
-        {/* No-bounds notice for the 9 unannotated scenes */}
-        {selectedSceneId && !bounds && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] bg-white rounded-lg shadow border border-amber-200 px-3 py-2 text-xs text-amber-700">
-            No geographic bounds available for this scene — imagery cannot be placed on map.
+        {/* Damage legend — visible in overlay mode */}
+        {imageryLayer === "overlay" && (
+          <div className="absolute bottom-4 left-3 z-[1000] bg-white rounded-lg shadow border border-gray-100 px-3 py-2.5 space-y-1.5">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Damage Level</p>
+            {[
+              { color: "#22c55e", label: "No Damage" },
+              { color: "#eab308", label: "Minor Damage" },
+              { color: "#f97316", label: "Severe Damage" },
+              { color: "#ef4444", label: "Destroyed" },
+            ].map(({ color, label }) => (
+              <div key={label} className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: color }} />
+                <span className="text-xs text-gray-600">{label}</span>
+              </div>
+            ))}
           </div>
         )}
 
@@ -432,11 +427,11 @@ function GeoMapWorkspace({ sceneOptions, basemap }) {
             <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg>
             {prevScene ? `Scene #${prevScene.shortId}` : "Previous"}
           </button>
-          <span className="text-[10px] text-gray-400 font-mono">
-            {bounds
-              ? `${bounds[0][0].toFixed(4)}, ${bounds[0][1].toFixed(4)} → ${bounds[1][0].toFixed(4)}, ${bounds[1][1].toFixed(4)}`
-              : "No bounds"}
-          </span>
+          {preview?.centroid && (
+            <span className="text-[10px] text-gray-400 font-mono">
+              {preview.centroid.lat.toFixed(4)}, {preview.centroid.lng.toFixed(4)}
+            </span>
+          )}
           <button onClick={() => nextScene && setSelectedSceneId(nextScene.sceneId)} disabled={!nextScene}
             className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-800 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
             {nextScene ? `Scene #${nextScene.shortId}` : "Next"}
@@ -451,15 +446,10 @@ function GeoMapWorkspace({ sceneOptions, basemap }) {
 // ─── Right Panel ─────────────────────────────────────────────────────────────
 
 function SceneMetadataPanel() {
-  const { harveyData, selectedSceneId, imageryLayer } = useAppContext();
+  const { harveyData, selectedSceneId } = useAppContext();
 
   const preview = useMemo(
     () => (harveyData && selectedSceneId ? getScenePreview(harveyData, selectedSceneId) : null),
-    [harveyData, selectedSceneId]
-  );
-
-  const bounds = useMemo(
-    () => (harveyData && selectedSceneId ? getSceneBounds(harveyData, selectedSceneId) : null),
     [harveyData, selectedSceneId]
   );
 
@@ -487,14 +477,6 @@ function SceneMetadataPanel() {
         {preview.centroid && (
           <div className="flex gap-2"><span className="w-20 shrink-0 text-gray-400">Center</span><span className="text-gray-700 font-mono text-[10px]">{preview.centroid.lat.toFixed(4)}, {preview.centroid.lng.toFixed(4)}</span></div>
         )}
-        {bounds && (
-          <div className="flex gap-2 items-start"><span className="w-20 shrink-0 text-gray-400">Bounds</span>
-            <span className="text-gray-700 font-mono text-[10px] leading-relaxed">
-              SW {bounds[0][0].toFixed(4)}, {bounds[0][1].toFixed(4)}<br />
-              NE {bounds[1][0].toFixed(4)}, {bounds[1][1].toFixed(4)}
-            </span>
-          </div>
-        )}
       </div>
 
       <div>
@@ -502,7 +484,7 @@ function SceneMetadataPanel() {
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
             <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Pre</p>
-            <div className={`rounded-lg overflow-hidden bg-gray-100 aspect-square ring-2 transition-all ${imageryLayer === "pre" ? "ring-blue-500" : "ring-transparent"}`}>
+            <div className="rounded-lg overflow-hidden bg-gray-100 aspect-square">
               {preview.preImagePath
                 ? <img src={preview.preImagePath} alt="Pre" className="w-full h-full object-cover" />
                 : <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">—</div>
@@ -511,7 +493,7 @@ function SceneMetadataPanel() {
           </div>
           <div className="space-y-1">
             <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Post</p>
-            <div className={`rounded-lg overflow-hidden bg-gray-100 aspect-square ring-2 transition-all ${imageryLayer === "post" || imageryLayer === "overlay" ? "ring-orange-500" : "ring-transparent"}`}>
+            <div className="rounded-lg overflow-hidden bg-gray-100 aspect-square">
               {preview.postImagePath
                 ? <img src={preview.postImagePath} alt="Post" className="w-full h-full object-cover" />
                 : <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">—</div>
@@ -631,11 +613,10 @@ export default function MapWorkspace() {
     [harveyData]
   );
 
-  const breadcrumbSuffix = imageryLayer === "pre"
-    ? "Pre-Disaster Imagery"
-    : imageryLayer === "post"
-    ? "Post-Disaster Imagery"
-    : "Overlay Map";
+  const breadcrumbSuffix =
+    imageryLayer === "overlay" ? "Damage Overlay" :
+    imageryLayer === "post"    ? "Post Imagery"   :
+                                 "Pre Imagery";
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">

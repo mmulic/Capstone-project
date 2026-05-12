@@ -4,7 +4,7 @@ const AppContext = createContext(null);
 
 export const AppProvider = ({ children }) => {
   const [currentPage, setCurrentPage] = useState("landing"); // landing | overview | map | metrics | settings
-  const [imageryLayer, setImageryLayer] = useState("overlay"); // pre | post | overlay
+  const [imageryLayer, setImageryLayer] = useState("pre"); // "pre" | "post" | "overlay"
 
   // Harvey dataset — loaded once in MapWorkspace, stored here so it survives navigation
   const [harveyData, setHarveyData] = useState(null);

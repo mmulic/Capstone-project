@@ -8,11 +8,31 @@
 
 let _cache = null;
 
+const HARVEY_DISASTER = "hurricane-harvey";
+
 export async function loadHarveyData() {
   if (_cache) return _cache;
   const res = await fetch("/harvey/harvey-data.json");
   if (!res.ok) throw new Error("Failed to load Harvey data");
-  _cache = await res.json();
+  const raw = await res.json();
+
+  const harveySceneIds = new Set(
+    raw.scenes.filter(s => s.disaster === HARVEY_DISASTER).map(s => s.sceneId)
+  );
+
+  // Drop zero-building scenes — no annotation data to work with
+  const placeableIds = new Set(
+    raw.scenes
+      .filter(s => harveySceneIds.has(s.sceneId))
+      .filter(s => (s.buildingCount?.pre ?? 0) + (s.buildingCount?.post ?? 0) > 0)
+      .map(s => s.sceneId)
+  );
+
+  _cache = {
+    scenes:      raw.scenes.filter(s => placeableIds.has(s.sceneId)),
+    preMarkers:  raw.preMarkers.filter(m => placeableIds.has(m.sceneId)),
+    postMarkers: raw.postMarkers.filter(m => placeableIds.has(m.sceneId)),
+  };
   return _cache;
 }
 
@@ -72,19 +92,6 @@ export function getScenePreview(data, sceneId) {
 }
 
 /**
- * Returns the geographic bounds for a scene as a Leaflet-ready
- * [[sw_lat, sw_lng], [ne_lat, ne_lng]] pair, or null if unavailable.
- */
-export function getSceneBounds(data, sceneId) {
-  const s = findSceneById(data, sceneId);
-  if (!s?.bounds) return null;
-  return [
-    [s.bounds.sw[0], s.bounds.sw[1]],
-    [s.bounds.ne[0], s.bounds.ne[1]],
-  ];
-}
-
-/**
  * Returns scene centroid markers for the overlay map.
  * Each entry: { sceneId, shortId, lat, lng }
  */
@@ -96,6 +103,23 @@ export function getSceneCentroids(data) {
       shortId: parseInt(s.sceneId, 10),
       lat: s.centroid.lat,
       lng: s.centroid.lng,
+    }));
+}
+
+// ─── Image overlay helpers ────────────────────────────────────────────────────
+
+/**
+ * Returns an array of image overlay descriptors for all scenes that have
+ * a valid image and geographic bounds for the given phase ("pre" | "post").
+ * Each entry: { sceneId, url, bounds: [[lat_sw, lng_sw], [lat_ne, lng_ne]] }
+ */
+export function getSceneImageOverlays(data, phase) {
+  return data.scenes
+    .filter((s) => s.imagePath?.[phase] && s.imageBounds)
+    .map((s) => ({
+      sceneId: s.sceneId,
+      url: s.imagePath[phase],
+      bounds: [s.imageBounds.sw, s.imageBounds.ne],
     }));
 }
 
