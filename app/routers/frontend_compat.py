@@ -14,10 +14,8 @@ and route to the appropriate underlying endpoint based on data availability.
 """
 
 from typing import Optional, Any
-from fastapi import APIRouter, Depends, Query, HTTPException, Request
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Query, HTTPException, Request
 
-from app.core.database import get_db
 from app.services.supabase_bridge import supabase_bridge
 from app.services.geojson_service import geojson_service
 from app.services.rag_service import rag_service
@@ -39,30 +37,38 @@ async def damage_data(
     damage_level: Optional[str] = Query(None),
     confidence_min: Optional[float] = Query(None, ge=0.0, le=1.0),
     disaster: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    sceneId: Optional[str] = Query(None, description="Filter predictions to a single scene"),
 ):
     """
     Frontend-compatible alias for GeoJSON damage data.
 
     Routes to ML bridge if Supabase is configured (live ML predictions),
     otherwise falls back to the local PostgreSQL GeoJSON service.
+
+    The frontend passes `?sceneId=00000003` when the user selects a scene;
+    this is forwarded to the ML bridge as `scene_id` so only that scene's
+    buildings are returned.
+
+    Note: the local-DB session is created lazily (only in the fallback path)
+    so a missing local PostgreSQL does not prevent the Supabase path from working.
     """
     # Prefer live ML data if Supabase is wired up
     if supabase_bridge.is_configured and supabase_bridge.is_reachable():
-        # Reuse the ML bridge router's logic by importing its handler
         from app.routers.ml_bridge import ml_geojson
-        return await ml_geojson(limit=2000, disaster=disaster)
+        return await ml_geojson(limit=2000, disaster=disaster, scene_id=sceneId)
 
-    # Fallback to local PostgreSQL data
-    return await geojson_service.get_feature_collection(
-        db=db,
-        sw_lat=sw_lat,
-        sw_lng=sw_lng,
-        ne_lat=ne_lat,
-        ne_lng=ne_lng,
-        damage_level=damage_level,
-        confidence_min=confidence_min,
-    )
+    # Fallback to local PostgreSQL data — open the session only when needed
+    from app.core.database import AsyncSessionLocal
+    async with AsyncSessionLocal() as db:
+        return await geojson_service.get_feature_collection(
+            db=db,
+            sw_lat=sw_lat,
+            sw_lng=sw_lng,
+            ne_lat=ne_lat,
+            ne_lng=ne_lng,
+            damage_level=damage_level,
+            confidence_min=confidence_min,
+        )
 
 
 # ─── /query ──────────────────────────────────────────────
@@ -71,7 +77,6 @@ async def damage_data(
 @router.post("/query")
 async def query(
     payload: dict,
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Frontend-compatible chatbot endpoint with full rubric capabilities:
@@ -446,7 +451,6 @@ def _generate_contextual_response(message: str, context: str, stats: dict = None
 @router.get("/evaluate")
 async def evaluate_alias(
     propertyId: Optional[str] = Query(None, description="Property/building ID to evaluate"),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Frontend-compatible alias for property evaluation.
@@ -455,6 +459,9 @@ async def evaluate_alias(
     We translate to either:
       - ML bridge prediction lookup (if Supabase configured + ID looks like an ML building ID)
       - Local property detail (fallback)
+
+    Note: local-DB sessions are opened lazily so a missing local PostgreSQL does not
+    block the Supabase path from working.
     """
     if not propertyId:
         # If no property ID given, return overall evaluation metrics
@@ -468,7 +475,9 @@ async def evaluate_alias(
 
         # Fallback to local evaluation
         from app.services.evaluation_service import evaluation_service
-        return await evaluation_service.evaluate(db)
+        from app.core.database import AsyncSessionLocal
+        async with AsyncSessionLocal() as db:
+            return await evaluation_service.evaluate(db)
 
     # Property-specific lookup
     # Try ML bridge first (since frontend likely shows ML predictions)
@@ -485,8 +494,10 @@ async def evaluate_alias(
     # Fallback to local property detail
     try:
         from app.routers.results import get_property_detail
+        from app.core.database import AsyncSessionLocal
         from uuid import UUID
-        return await get_property_detail(UUID(propertyId), db=db)
+        async with AsyncSessionLocal() as db:
+            return await get_property_detail(UUID(propertyId), db=db)
     except (ValueError, HTTPException) as e:
         raise HTTPException(
             status_code=404,

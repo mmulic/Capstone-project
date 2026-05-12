@@ -31,6 +31,9 @@ class Settings(BaseSettings):
 
     # Gemini
     gemini_api_key: str = ""
+    
+    # Supabase (ML Bridge)
+    supabase_db_dsn: str = ""
 
     @property
     def is_dev(self) -> bool:

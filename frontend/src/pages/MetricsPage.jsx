@@ -104,16 +104,16 @@ const MetricsPage = () => {
     },
     {
       label: "Macro Precision",
-      value: pct(evaluation.macro_precision ?? evaluation.per_class
+      value: pct(evaluation.macro_precision ?? (evaluation.per_class
         ? Object.values(evaluation.per_class).reduce((s, c) => s + (c.precision ?? 0), 0) / Object.keys(evaluation.per_class).length
-        : null),
+        : null)),
       sub: "Avg across damage classes",
     },
     {
       label: "Macro Recall",
-      value: pct(evaluation.macro_recall ?? evaluation.per_class
+      value: pct(evaluation.macro_recall ?? (evaluation.per_class
         ? Object.values(evaluation.per_class).reduce((s, c) => s + (c.recall ?? 0), 0) / Object.keys(evaluation.per_class).length
-        : null),
+        : null)),
       sub: "Sensitivity metric",
     },
     {
@@ -128,7 +128,13 @@ const MetricsPage = () => {
   ] : null;
 
   // ── Confusion matrix from evaluation ────────────────────────────────────
-  const confusionMatrix = evaluation?.confusion_matrix ?? null;
+  // DB may return the matrix as a plain array OR as an object keyed by index
+  const rawMatrix = evaluation?.confusion_matrix ?? null;
+  const confusionMatrix = Array.isArray(rawMatrix)
+    ? rawMatrix
+    : rawMatrix && typeof rawMatrix === "object"
+      ? Object.values(rawMatrix)
+      : null;
   const matrixLabels = confusionMatrix
     ? (evaluation.class_labels ?? DAMAGE_LABELS.slice(0, confusionMatrix.length))
     : DAMAGE_LABELS;
@@ -311,7 +317,7 @@ const MetricsPage = () => {
         </div>
 
         {/* Per-class breakdown table — shown when evaluation data is available */}
-        {evaluation?.per_class && (
+        {evaluation?.per_class && typeof evaluation.per_class === "object" && !Array.isArray(evaluation.per_class) && (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
             <h3 className="font-semibold text-gray-900 mb-4">Per-Class Metrics</h3>
             <div className="overflow-x-auto">

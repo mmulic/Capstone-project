@@ -33,3 +33,5 @@ htmlcov/
 ml/data/
 ml_env/
 ml/results/
+node_modules/
+frontend/node_modules/

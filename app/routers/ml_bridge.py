@@ -105,15 +105,18 @@ DAMAGE_COLORS = {
 async def ml_geojson(
     limit: int = Query(1000, ge=1, le=5000),
     disaster: Optional[str] = Query(None, description="Filter by disaster name"),
+    scene_id: Optional[str] = Query(None, description="Filter by scene ID (e.g. '00000003')"),
 ):
     """
     Return ML predictions as a GeoJSON FeatureCollection.
     AUTOMATICALLY FILTERS OUT records without valid GPS coordinates so the map
     only shows pins that actually make geographic sense.
 
+    Pass `?scene_id=00000003` to get predictions for a single scene only.
+
     Frontend can plug straight into Leaflet:
     ```js
-    const res = await fetch('/api/ml/geojson');
+    const res = await fetch('/api/ml/geojson?scene_id=00000003');
     const geojson = await res.json();
     L.geoJSON(geojson, { style: f => ({ color: f.properties.color }) }).addTo(map);
     ```
@@ -124,6 +127,7 @@ async def ml_geojson(
     predictions = supabase_bridge.fetch_predictions(
         limit=limit,
         disaster_name=disaster,
+        scene_id=scene_id,
         require_valid_gps=True,
     )
 
@@ -147,6 +151,7 @@ async def ml_geojson(
             "properties": {
                 "id": p["property_id"],
                 "external_id": p.get("external_id"),
+                "scene_id": p.get("scene_id"),
                 "damage_class": damage,
                 "confidence": p.get("confidence"),
                 "rationale": p.get("rationale"),
@@ -165,6 +170,7 @@ async def ml_geojson(
         "metadata": {
             "total_features": len(features),
             "filtered_by_disaster": disaster,
+            "filtered_by_scene": scene_id,
             "note": "Records without valid GPS coordinates are excluded.",
         },
     }

@@ -22,7 +22,6 @@ OUR SCHEMA (FastAPI):
   - ground_truth(id, property_id, damage_class, source)
 """
 
-import os
 import logging
 from typing import Optional, Any
 
@@ -30,14 +29,16 @@ import psycopg
 from psycopg.rows import dict_row
 
 from app.models.models import DamageClass
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 
 # ─── Configuration ────────────────────────────────────────
 
-# NEVER hardcode credentials. Read from environment only.
-SUPABASE_DSN = os.environ.get("SUPABASE_DB_DSN", "").strip()
+# Read via pydantic-settings so the .env file is respected even when the var
+# is not exported into the shell environment directly.
+SUPABASE_DSN = get_settings().supabase_db_dsn.strip()
 
 
 # ─── Coordinate Validation ────────────────────────────────
@@ -222,6 +223,7 @@ class SupabaseBridge:
         limit: int = 1000,
         damage_filter: Optional[str] = None,
         disaster_name: Optional[str] = None,
+        scene_id: Optional[str] = None,
         require_valid_gps: bool = False,
     ) -> list[dict]:
         """
@@ -232,6 +234,7 @@ class SupabaseBridge:
             limit: max records to return
             damage_filter: filter by ML label (e.g. 'destroyed')
             disaster_name: filter by disaster
+            scene_id: filter by scene ID (substring match — handles full or partial IDs)
             require_valid_gps: if True, only return records with valid lat/lng GPS coords
         """
         if not self.is_configured:
@@ -271,6 +274,12 @@ class SupabaseBridge:
         if disaster_name:
             query += " AND s.disaster_name = %s"
             params.append(disaster_name)
+
+        if scene_id:
+            # Use ILIKE with wildcard so both exact IDs ("00000003") and longer
+            # scene strings ("hurricane-harvey_00000003_post_disaster") match.
+            query += " AND s.scene_id ILIKE %s"
+            params.append(f"%{scene_id}%")
 
         # Push GPS validity check into SQL when requested for efficiency
         if require_valid_gps:
