@@ -35,3 +35,6 @@ ml_env/
 ml/results/
 node_modules/
 frontend/node_modules/
+
+# Harvey satellite images — large files, copy locally from ml/data/test/images/
+frontend/public/harvey/harvey_images/
