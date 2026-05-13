@@ -1,26 +1,28 @@
 """
 VLM Analysis Router
 ====================
-POST /api/vlm/analyze — Upload a post-disaster image, send to Gemini Vision,
-                        return per-building damage breakdown.
+POST /api/vlm/analyze — Upload a pre+post disaster image pair, send to Gemini Vision,
+                        return per-building damage breakdown via comparison analysis.
 
-The frontend's DatasetsPage sends a single post-disaster image.
-Gemini analyzes the scene and returns a damage assessment.
+When only post_image is provided, Gemini assesses absolute damage from the post scene.
+When both pre_image and post_image are provided, Gemini compares the two to identify
+changes and classify damage more accurately.
 
-Response shape (matches what DatasetsPage expects):
+Response shape:
 {
     "buildings_visible": 5,
     "damage_counts": {"no_damage": 1, "minor_damage": 2, "major_damage": 1, "destroyed": 1},
     "scene_summary": "Analysis shows significant damage...",
-    "model_used": "gemini-2.0-flash"
+    "model_used": "gemini-2.0-flash",
+    "comparison_mode": true
 }
 """
 
-import io
 import os
 import json
 import re
 import logging
+from typing import Optional
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
 
@@ -31,9 +33,9 @@ router = APIRouter(prefix="/api/vlm", tags=["VLM Analysis"])
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 DEFAULT_MODEL = "gemini-2.0-flash"
 
-# ─── Gemini Scene Analysis Prompt ──────────────────────────────────────────
+# ─── Prompts ───────────────────────────────────────────────────────────────
 
-SCENE_ANALYSIS_PROMPT = """
+POST_ONLY_PROMPT = """
 You are an expert disaster damage assessor analyzing overhead satellite imagery.
 
 You are given a post-disaster satellite image showing a neighborhood or area.
@@ -58,6 +60,33 @@ Respond ONLY with JSON (no markdown, no explanation):
 }
 """.strip()
 
+COMPARISON_PROMPT = """
+You are an expert disaster damage assessor performing a before-and-after satellite imagery analysis.
+
+You are given TWO overhead satellite images of the same area:
+  IMAGE 1: Pre-disaster (before the event)
+  IMAGE 2: Post-disaster (after the event)
+
+Compare the two images carefully. For each building visible in the pre-disaster image,
+determine what happened to it in the post-disaster image and classify it as:
+- no_damage: structure looks the same as before — no visible change
+- minor_damage: slight changes — minor roof damage, debris nearby, but structure intact
+- major_damage: significant changes — partial collapse, flooding, severe structural compromise
+- destroyed: structure is gone or completely unrecognizable compared to before
+
+Respond ONLY with JSON (no markdown, no explanation):
+{
+    "buildings_visible": <integer — buildings identifiable in pre-disaster image>,
+    "damage_counts": {
+        "no_damage": <count>,
+        "minor_damage": <count>,
+        "major_damage": <count>,
+        "destroyed": <count>
+    },
+    "scene_summary": "<2-3 sentence description comparing before vs after, highlighting key changes>"
+}
+""".strip()
+
 
 def _normalize_response(text: str) -> str:
     """Strip markdown code fences from Gemini response."""
@@ -67,16 +96,27 @@ def _normalize_response(text: str) -> str:
     return text.strip()
 
 
+def _safe_mime(content_type: Optional[str]) -> str:
+    allowed = ("image/jpeg", "image/png", "image/tiff", "image/webp")
+    return content_type if content_type in allowed else "image/jpeg"
+
+
 @router.post("/analyze")
 async def analyze_scene(
     post_image: UploadFile = File(..., description="Post-disaster satellite image"),
+    pre_image: Optional[UploadFile] = File(None, description="Pre-disaster satellite image (optional, enables comparison mode)"),
 ):
     """
-    Upload a post-disaster image for VLM damage analysis.
+    Upload a pre/post disaster image pair for VLM damage analysis.
 
-    Sends the image to Google Gemini Vision which identifies buildings
-    and classifies damage levels. Returns counts per damage class
-    and a scene summary.
+    - **post_image** (required): the post-disaster satellite image
+    - **pre_image** (optional): the pre-disaster satellite image
+
+    When both images are provided, Gemini performs a side-by-side comparison to detect
+    changes and classify damage more accurately (comparison mode).
+    When only post_image is provided, Gemini assesses damage from the post scene alone.
+
+    Returns counts per damage class and a scene summary.
     """
     if not GEMINI_API_KEY:
         raise HTTPException(
@@ -84,15 +124,23 @@ async def analyze_scene(
             detail="GEMINI_API_KEY is not configured. Add it to the .env file to enable VLM analysis."
         )
 
-    # Read the uploaded image
-    image_data = await post_image.read()
-    if len(image_data) > 50 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Image exceeds 50 MB limit")
+    # Read post-disaster image
+    post_data = await post_image.read()
+    if len(post_data) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Post-disaster image exceeds 50 MB limit")
 
-    # Determine MIME type
-    content_type = post_image.content_type or "image/jpeg"
-    if content_type not in ("image/jpeg", "image/png", "image/tiff", "image/webp"):
-        content_type = "image/jpeg"  # fallback
+    post_mime = _safe_mime(post_image.content_type)
+
+    # Read pre-disaster image if provided
+    pre_data = None
+    pre_mime = None
+    if pre_image and pre_image.filename:
+        pre_data = await pre_image.read()
+        if len(pre_data) > 50 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Pre-disaster image exceeds 50 MB limit")
+        pre_mime = _safe_mime(pre_image.content_type)
+
+    comparison_mode = pre_data is not None
 
     try:
         import google.generativeai as genai
@@ -100,45 +148,47 @@ async def analyze_scene(
         genai.configure(api_key=GEMINI_API_KEY)
         model = genai.GenerativeModel(DEFAULT_MODEL)
 
-        # Build the image part for Gemini
-        image_part = {
-            "mime_type": content_type,
-            "data": image_data,
-        }
+        if comparison_mode:
+            # Send pre + post to Gemini with comparison prompt
+            prompt = COMPARISON_PROMPT
+            content = [
+                prompt,
+                "IMAGE 1 — Pre-disaster:",
+                {"mime_type": pre_mime, "data": pre_data},
+                "IMAGE 2 — Post-disaster:",
+                {"mime_type": post_mime, "data": post_data},
+            ]
+        else:
+            prompt = POST_ONLY_PROMPT
+            content = [
+                prompt,
+                {"mime_type": post_mime, "data": post_data},
+            ]
 
-        # Call Gemini
-        response = model.generate_content(
-            [SCENE_ANALYSIS_PROMPT, image_part],
-            generation_config={"temperature": 0.1},
-        )
+        response = model.generate_content(content, generation_config={"temperature": 0.1})
 
         raw_text = (getattr(response, "text", "") or "").strip()
         normalized = _normalize_response(raw_text)
 
-        # Parse the JSON response
         try:
             result = json.loads(normalized)
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError:
             logger.error(f"Gemini returned non-JSON: {raw_text[:500]}")
             raise HTTPException(
                 status_code=502,
                 detail=f"Gemini returned an unparseable response. Raw: {raw_text[:300]}"
             )
 
-        # Validate and normalize the response
         buildings_visible = result.get("buildings_visible", 0)
         damage_counts = result.get("damage_counts", {})
         scene_summary = result.get("scene_summary", "")
 
-        # Ensure all damage keys exist
         for key in ["no_damage", "minor_damage", "major_damage", "destroyed"]:
             if key not in damage_counts:
                 damage_counts[key] = 0
 
-        # Ensure counts are integers
         damage_counts = {k: int(v) for k, v in damage_counts.items()}
 
-        # If buildings_visible is 0 but damage_counts has values, fix it
         total_from_counts = sum(damage_counts.values())
         if buildings_visible == 0 and total_from_counts > 0:
             buildings_visible = total_from_counts
@@ -148,6 +198,7 @@ async def analyze_scene(
             "damage_counts": damage_counts,
             "scene_summary": scene_summary,
             "model_used": DEFAULT_MODEL,
+            "comparison_mode": comparison_mode,
         }
 
     except HTTPException:

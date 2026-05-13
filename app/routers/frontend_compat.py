@@ -85,15 +85,17 @@ async def query(
         raise HTTPException(status_code=422, detail="message field is required")
 
     # Parse conversation history for context memory
+    # Accepts [{role, text}, ...] or [{role, content}, ...] from frontend
     history_raw = payload.get("history", [])
+    history_turns = []  # full turns as {role, text}
     if isinstance(history_raw, list):
-        history = [
-            h.get("text", h.get("content", ""))
-            for h in history_raw
-            if isinstance(h, dict) and h.get("role") == "user"
-        ]
-    else:
-        history = []
+        for h in history_raw:
+            if isinstance(h, dict) and h.get("role"):
+                text = h.get("text", h.get("content", ""))
+                if text:
+                    history_turns.append({"role": h["role"], "text": text})
+
+    user_history = [t["text"] for t in history_turns if t["role"] == "user"]
 
     lower = message.lower()
 
@@ -108,22 +110,21 @@ async def query(
 
     if is_general_disaster:
         response_text = _get_disaster_knowledge(message, lower)
+        # Acknowledge prior conversation if history present
+        if user_history:
+            response_text = f"(Following up on our conversation about {user_history[-1][:40]}…)\n\n" + response_text
         return {
             "response": response_text,
             "answer": response_text,
             "context_used": {"source": "disaster_knowledge", "has_data": True},
         }
 
-    # ── 2. Check if this references previous conversation ─────────────
-    references_history = any(w in lower for w in [
-        "previous", "before", "earlier", "last question", "you said",
-        "you mentioned", "follow up", "what about", "and also",
-        "same", "those", "that",
-    ])
-
+    # ── 2. Build conversation context from history ─────────────────────
     history_context = ""
-    if references_history and history:
-        history_context = f"Previous questions in this conversation: {'; '.join(history[-5:])}. "
+    if user_history:
+        # Always include recent prior questions so the model has conversational context
+        recent = user_history[-5:]
+        history_context = f"Previous questions in this conversation: {'; '.join(recent)}. "
 
     # ── 3. Query Supabase for real prediction data ────────────────────
     context_text = ""
