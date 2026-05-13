@@ -2,11 +2,11 @@ services:
   # ── React Frontend (Nginx) ───────────────────────────
   frontend:
     build:
-      context: ../frontend
-      dockerfile: ../disaster-assessment-backend/deploy/frontend.Dockerfile
+      # Frontend source is now in the same repo under frontend/
+      context: ./frontend
+      dockerfile: ./deploy/frontend.Dockerfile
       args:
-        # Frontend talks to backend via the EC2 public IP / domain
-        # In production, use a relative URL or environment-driven value
+        # Empty string → axios uses relative URLs, nginx proxies /api/* to backend
         VITE_API_BASE_URL: ""
     container_name: disaster-frontend
     ports:

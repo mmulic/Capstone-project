@@ -15,7 +15,6 @@ set -e
 
 REPO_URL="https://github.com/mmulic/Capstone-project.git"
 BACKEND_BRANCH="ahmad"
-FRONTEND_BRANCH="frontend"
 WORK_DIR="$HOME/capstone"
 
 echo ""
@@ -72,23 +71,8 @@ else
     git clone --branch $BACKEND_BRANCH $REPO_URL disaster-assessment-backend
 fi
 
-# ─── 6. Clone frontend (from frontend branch) ─────────────
-if [ -d "frontend" ]; then
-    echo "[5/7] Frontend repo exists — pulling latest..."
-    cd frontend
-    git fetch origin
-    git checkout $FRONTEND_BRANCH
-    git pull origin $FRONTEND_BRANCH
-    # Frontend code is in /frontend folder of repo
-    cd ..
-else
-    echo "[5/7] Cloning frontend ($FRONTEND_BRANCH branch)..."
-    git clone --branch $FRONTEND_BRANCH $REPO_URL frontend-repo
-    # Symlink the actual frontend folder so docker-compose paths work
-    ln -sf frontend-repo/frontend frontend
-fi
-
 # ─── 7. Set up environment file ──────────────────────────
+# Note: frontend/ is now in the ahmad branch (no separate clone needed)
 cd $WORK_DIR/disaster-assessment-backend
 if [ ! -f .env ]; then
     echo "[6/7] Creating .env from template..."
@@ -139,7 +123,7 @@ echo "   sudo docker compose -f docker-compose.prod.yml restart         # Restar
 echo "   sudo docker compose -f docker-compose.prod.yml down            # Stop everything"
 echo ""
 echo "🔄 To update after pushing new code:"
-echo "   cd $WORK_DIR/disaster-assessment-backend && git pull"
-echo "   cd $WORK_DIR/frontend-repo && git pull"
-echo "   cd $WORK_DIR/disaster-assessment-backend && sudo docker compose -f docker-compose.prod.yml up -d --build"
+echo "   cd $WORK_DIR/disaster-assessment-backend"
+echo "   git pull origin $BACKEND_BRANCH"
+echo "   sudo docker compose -f docker-compose.prod.yml up -d --build"
 echo ""

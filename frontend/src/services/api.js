@@ -1,7 +1,9 @@
 import axios from "axios";
 
+// In production nginx proxies /api/, /query, /damage-data, etc. to the backend.
+// VITE_API_BASE_URL can override (e.g. for local dev pointing at a remote server).
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "",
   timeout: 15000,
   headers: { "Content-Type": "application/json" },
 });

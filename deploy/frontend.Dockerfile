@@ -96,15 +96,43 @@ RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build
 # ─── Stage 2: Serve ───────────────────────────────────────────────
 FROM nginx:alpine AS runtime
 
-RUN echo 'server { \
-    listen 80; \
-    server_name _; \
-    root /usr/share/nginx/html; \
-    index index.html; \
-    location / { \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+# Nginx config:
+#   - Proxy /api/, /damage-data, /query, /evaluate, /health, /docs, /redoc
+#     to the FastAPI backend (Docker service name: app, port 8000)
+#   - Serve everything else as the React SPA (index.html fallback)
+RUN cat > /etc/nginx/conf.d/default.conf <<'NGINXCONF'
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Proxy all backend API paths to FastAPI
+    location /api/ {
+        proxy_pass         http://app:8000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_read_timeout 120s;
+        client_max_body_size 55m;
+    }
+
+    # Frontend-compat root-level endpoints
+    location ~ ^/(damage-data|query|evaluate|health|docs|redoc|openapi.json) {
+        proxy_pass         http://app:8000;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_read_timeout 120s;
+        client_max_body_size 55m;
+    }
+
+    # SPA fallback — everything else serves index.html
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+NGINXCONF
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 
