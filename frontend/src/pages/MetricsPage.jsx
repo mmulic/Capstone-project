@@ -99,7 +99,7 @@ const MetricsPage = () => {
   const kpis = evaluation ? [
     {
       label: "Model Accuracy",
-      value: pct(evaluation.overall_accuracy),
+      value: pct(evaluation.accuracy),
       sub: "Overall correct predictions",
     },
     {
@@ -130,13 +130,9 @@ const MetricsPage = () => {
   // ── Confusion matrix from evaluation ────────────────────────────────────
   // DB may return the matrix as a plain array OR as an object keyed by index
   const rawMatrix = evaluation?.confusion_matrix ?? null;
-  const confusionMatrix = Array.isArray(rawMatrix)
-    ? rawMatrix
-    : rawMatrix && typeof rawMatrix === "object"
-      ? Object.values(rawMatrix)
-      : null;
+  const confusionMatrix = rawMatrix?.matrix ?? (Array.isArray(rawMatrix) ? rawMatrix : null);
   const matrixLabels = confusionMatrix
-    ? (evaluation.class_labels ?? DAMAGE_LABELS.slice(0, confusionMatrix.length))
+    ? (rawMatrix?.labels ?? DAMAGE_LABELS.slice(0, confusionMatrix.length))
     : DAMAGE_LABELS;
 
   return (
