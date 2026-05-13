@@ -123,25 +123,17 @@ const MetricsPage = () => {
     },
     {
       label: "Macro Precision",
-      value: pct(evaluation.macro_precision ?? evaluation.per_class
-        ? Object.values(evaluation.per_class).reduce((s, c) => s + (c.precision ?? 0), 0) / Object.keys(evaluation.per_class).length
-        : null),
+      value: pct(evaluation.macro_precision),
       sub: "Avg across damage classes",
     },
     {
       label: "Macro Recall",
-      value: pct(evaluation.macro_recall ?? evaluation.per_class
-        ? Object.values(evaluation.per_class).reduce((s, c) => s + (c.recall ?? 0), 0) / Object.keys(evaluation.per_class).length
-        : null),
+      value: pct(evaluation.macro_recall),
       sub: "Sensitivity metric",
     },
     {
       label: "Macro F1",
-      value: evaluation.macro_f1 != null
-        ? evaluation.macro_f1.toFixed(3)
-        : pct(evaluation.per_class
-          ? Object.values(evaluation.per_class).reduce((s, c) => s + (c.f1 ?? 0), 0) / Object.keys(evaluation.per_class).length
-          : null),
+      value: evaluation.macro_f1 != null ? evaluation.macro_f1.toFixed(3) : "—",
       sub: "Harmonic mean P/R",
     },
   ] : null;
@@ -149,7 +141,7 @@ const MetricsPage = () => {
   // ── Confusion matrix from evaluation ────────────────────────────────────
   const confusionMatrix = evaluation?.confusion_matrix ?? null;
   const matrixLabels = confusionMatrix
-    ? (evaluation.class_labels ?? DAMAGE_LABELS.slice(0, confusionMatrix.length))
+    ? (evaluation?.class_labels ?? DAMAGE_LABELS.slice(0, confusionMatrix.length))
     : DAMAGE_LABELS;
 
   return (

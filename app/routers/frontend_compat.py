@@ -108,7 +108,7 @@ async def query(
     ]) and not any(w in lower for w in [
         "how many", "count", "destroyed", "our", "dataset", "prediction",
         "show", "damage", "buildings", "scene", "map", "focus", "zoom",
-        "harvey", "florence", "where", "location",
+        "harvey", "where", "location",
     ])
 
     if is_general_disaster:
@@ -135,13 +135,19 @@ async def query(
     map_focus = None  # Will contain {lat, lng, zoom} if we should focus the map
 
     if supabase_bridge.is_configured and supabase_bridge.is_reachable():
-        # Get overall stats
+        # Get stats for hurricane-harvey only
         summary_rows = supabase_bridge.fetch_disaster_summary()
-        if summary_rows and not summary_rows[0].get("error"):
+        # Filter to Harvey only — never surface Florence data
+        harvey_rows = [
+            r for r in summary_rows
+            if "harvey" in (r.get("disaster_name") or "").lower()
+            and not r.get("error")
+        ]
+        if harvey_rows:
             overall = {}
             by_disaster = {}
-            for row in summary_rows:
-                disaster = row.get("disaster_name", "unknown")
+            for row in harvey_rows:
+                disaster = row.get("disaster_name", "hurricane-harvey")
                 label = row.get("final_label", "unknown")
                 count = row.get("count", 0)
                 overall[label] = overall.get(label, 0) + count
@@ -150,53 +156,23 @@ async def query(
                 by_disaster[disaster][label] = count
 
             total = sum(overall.values())
-            context_text = f"Total predictions: {total}\n"
+            context_text = f"Total predictions (Hurricane Harvey): {total}\n"
             context_text += f"Distribution: {', '.join(f'{k}: {v}' for k, v in overall.items())}\n"
             stats = {"total": total, "distribution": overall, "by_disaster": by_disaster}
 
-        # ── 4. Location-specific queries (city, street, scene) ────────
-        location_query = _extract_location(message)
-        if location_query:
-            preds = supabase_bridge.fetch_predictions(limit=2000, disaster_name=location_query.get("disaster"))
-            if preds and not preds[0].get("error"):
-                # Filter by location keywords if present
-                location_name = location_query.get("name", "").lower()
-                if location_name:
-                    matching = [p for p in preds if
-                        (p.get("scene_id") and location_name in p.get("scene_id", "").lower()) or
-                        (p.get("disaster_name") and location_name in p.get("disaster_name", "").lower())]
-                else:
-                    matching = preds
-
-                if matching:
-                    # Build damage summary for this location
-                    loc_counts = {}
-                    lats, lngs = [], []
-                    for p in matching:
-                        dc = p.get("damage_class", "unknown")
-                        loc_counts[dc] = loc_counts.get(dc, 0) + 1
-                        if p.get("latitude") and p.get("longitude"):
-                            lats.append(p["latitude"])
-                            lngs.append(p["longitude"])
-
-                    context_text += f"\nLocation filter '{location_name}': {len(matching)} buildings\n"
-                    context_text += f"Damage: {', '.join(f'{k}: {v}' for k, v in loc_counts.items())}\n"
-
-                    # Set map focus to center of matching buildings
-                    if lats and lngs:
-                        map_focus = {
-                            "lat": sum(lats) / len(lats),
-                            "lng": sum(lngs) / len(lngs),
-                            "zoom": 15,
-                            "building_count": len(matching),
-                        }
-
-        # ── 5. Scene-specific queries ─────────────────────────────────
+        # ── 4. Scene-specific queries ─────────────────────────────────
+        # Check for scene references first — they are more specific than location
         scene_match = _extract_scene_id(message)
         if scene_match:
-            preds = supabase_bridge.fetch_predictions(limit=500)
+            # Fetch all Harvey predictions and match on full scene_id
+            preds = supabase_bridge.fetch_predictions(
+                limit=2000, disaster_name="hurricane-harvey"
+            )
             if preds and not preds[0].get("error"):
-                scene_preds = [p for p in preds if p.get("scene_id") and scene_match in p.get("scene_id", "")]
+                scene_preds = [
+                    p for p in preds
+                    if p.get("scene_id") == scene_match
+                ]
                 if scene_preds:
                     sc_counts = {}
                     lats, lngs = [], []
@@ -207,8 +183,9 @@ async def query(
                             lats.append(p["latitude"])
                             lngs.append(p["longitude"])
 
-                    context_text += f"\nScene {scene_match}: {len(scene_preds)} buildings\n"
-                    context_text += f"Damage: {', '.join(f'{k}: {v}' for k, v in sc_counts.items())}\n"
+                    scene_num = scene_match.split("_")[-1].lstrip("0") or "0"
+                    context_text += f"\nScene {scene_num} ({scene_match}): {len(scene_preds)} buildings\n"
+                    context_text += f"Damage breakdown: {', '.join(f'{k}: {v}' for k, v in sc_counts.items())}\n"
 
                     if lats and lngs:
                         map_focus = {
@@ -217,18 +194,56 @@ async def query(
                             "zoom": 16,
                             "building_count": len(scene_preds),
                         }
+                else:
+                    context_text += f"\nScene {scene_match} was not found in the Hurricane Harvey dataset.\n"
+
+        # ── 5. Location-specific queries (city / disaster name) ────────
+        elif _extract_location(message):
+            location_query = _extract_location(message)
+            preds = supabase_bridge.fetch_predictions(
+                limit=2000, disaster_name="hurricane-harvey"
+            )
+            if preds and not preds[0].get("error"):
+                location_name = location_query.get("name", "").lower()
+                matching = [
+                    p for p in preds
+                    if not location_name
+                    or (p.get("scene_id") and location_name in p.get("scene_id", "").lower())
+                ]
+
+                if matching:
+                    loc_counts = {}
+                    lats, lngs = [], []
+                    for p in matching:
+                        dc = p.get("damage_class", "unknown")
+                        loc_counts[dc] = loc_counts.get(dc, 0) + 1
+                        if p.get("latitude") and p.get("longitude"):
+                            lats.append(p["latitude"])
+                            lngs.append(p["longitude"])
+
+                    context_text += f"\nHurricane Harvey — {len(matching)} buildings matched\n"
+                    context_text += f"Damage: {', '.join(f'{k}: {v}' for k, v in loc_counts.items())}\n"
+
+                    if lats and lngs:
+                        map_focus = {
+                            "lat": sum(lats) / len(lats),
+                            "lng": sum(lngs) / len(lngs),
+                            "zoom": 15,
+                            "building_count": len(matching),
+                        }
 
         # If no specific location/scene, get sample predictions for context
-        if not location_query and not scene_match:
-            if any(w in lower for w in ["building", "property", "example", "show", "sample"]):
-                preds = supabase_bridge.fetch_predictions(limit=5)
-                if preds and not preds[0].get("error"):
-                    context_text += "\nSample predictions:\n"
-                    for p in preds[:5]:
-                        context_text += (
-                            f"- {p.get('scene_id', 'N/A')}: {p.get('damage_class', '?')} "
-                            f"(confidence: {p.get('confidence', '?')}). {p.get('rationale', '')}\n"
-                        )
+        elif any(w in lower for w in ["building", "property", "example", "show", "sample"]):
+            preds = supabase_bridge.fetch_predictions(
+                limit=5, disaster_name="hurricane-harvey"
+            )
+            if preds and not preds[0].get("error"):
+                context_text += "\nSample predictions (Hurricane Harvey):\n"
+                for p in preds[:5]:
+                    context_text += (
+                        f"- {p.get('scene_id', 'N/A')}: {p.get('damage_class', '?')} "
+                        f"(confidence: {p.get('confidence', '?')}). {p.get('rationale', '')}\n"
+                    )
 
     # ── Generate response ──────────────────────────────────────────────
     if context_text:
@@ -258,34 +273,36 @@ async def query(
 
 
 def _extract_location(message: str) -> Optional[dict]:
-    """Extract location references from a chat message."""
+    """Extract location references from a chat message (Harvey dataset only)."""
     lower = message.lower()
 
-    # Check for disaster names
-    for disaster in ["harvey", "florence", "ian", "idalia", "katrina"]:
-        if disaster in lower:
-            return {"name": disaster, "disaster": f"hurricane-{disaster}"}
+    # Only match harvey — our dataset is Harvey-only
+    if "harvey" in lower:
+        return {"name": "harvey", "disaster": "hurricane-harvey"}
 
-    # Check for city names
-    for city in ["houston", "dallas", "austin", "miami", "new orleans",
-                 "tampa", "jacksonville", "wilmington", "florence"]:
+    # Texas cities relevant to Harvey
+    for city in ["houston", "beaumont", "port arthur", "rockport", "victoria",
+                 "corpus christi", "galveston"]:
         if city in lower:
-            return {"name": city, "disaster": None}
+            return {"name": city, "disaster": "hurricane-harvey"}
 
-    # Check for generic location queries
+    # Generic location queries default to Harvey
     if any(w in lower for w in ["street", "road", "avenue", "blvd", "drive", "lane"]):
-        return {"name": "", "disaster": None}
+        return {"name": "", "disaster": "hurricane-harvey"}
 
     return None
 
 
 def _extract_scene_id(message: str) -> Optional[str]:
-    """Extract scene ID references like 'scene 3' or 'scene #18'."""
+    """
+    Extract scene ID from messages like 'scene 353' or 'scene #353'.
+    Returns the full Supabase scene_id like 'hurricane-harvey_00000353'.
+    """
     import re
     match = re.search(r"scene\s*#?\s*(\d+)", message.lower())
     if match:
         scene_num = match.group(1).zfill(8)  # pad to 8 digits
-        return scene_num
+        return f"hurricane-harvey_{scene_num}"
     return None
 
 
@@ -325,8 +342,8 @@ def _get_disaster_knowledge(message: str, lower: str) -> str:
             "• Category 3: 111-129 mph — devastating damage (major hurricane)\n"
             "• Category 4: 130-156 mph — catastrophic damage\n"
             "• Category 5: 157+ mph — catastrophic, total destruction of structures\n\n"
-            "Hurricane Harvey (2017) made landfall as a Category 4. Florence (2018) as Category 1 "
-            "but caused massive flooding damage."
+            "Hurricane Harvey (2017) made landfall as a Category 4 storm near Rockport, Texas, "
+            "then stalled over Houston producing record-breaking rainfall."
         )
 
     if any(w in lower for w in ["preparedness", "prepare", "evacuation", "evacuate"]):
@@ -344,15 +361,8 @@ def _get_disaster_knowledge(message: str, lower: str) -> str:
             "It stalled over Houston for four days, dropping over 60 inches of rain in some areas — "
             "the highest-ever recorded rainfall from a single storm in the continental US. Over 300,000 "
             "structures were flooded, 40,000 people were rescued, and total damage exceeded $125 billion. "
-            "Our dataset includes satellite imagery from the Houston metropolitan area assessing building-level damage."
-        )
-
-    if "florence" in lower:
-        return (
-            "Hurricane Florence made landfall near Wrightsville Beach, North Carolina on September 14, 2018 "
-            "as a Category 1 hurricane. Despite its lower wind speed, Florence moved very slowly and produced "
-            "catastrophic flooding — some areas received over 30 inches of rain. The storm caused $24 billion "
-            "in damage and 53 deaths. Our dataset includes building damage assessments from affected areas."
+            "Our dataset covers the Houston metropolitan area with satellite imagery and building-level "
+            "damage assessments across thousands of scenes. Ask me about a specific scene number to see its damage breakdown."
         )
 
     # Generic disaster question
@@ -383,56 +393,62 @@ def _generate_contextual_response(message: str, context: str, stats: dict = None
         by_disaster = stats.get("by_disaster", {})
 
         # Handle common question patterns
+        # Normalize label keys — Supabase uses hyphens, local DB uses underscores
+        destroyed = dist.get("destroyed", 0)
+        major = dist.get("major-damage", dist.get("major_damage", 0))
+        minor = dist.get("minor-damage", dist.get("minor_damage", 0))
+        no_damage = dist.get("no-damage", dist.get("no_damage", 0))
+        safe_total = total if total > 0 else 1
+
         if any(w in lower for w in ["how many", "total", "count", "number"]):
             if "destroyed" in lower or "destroy" in lower:
-                destroyed = dist.get("destroyed", 0)
                 return (
-                    f"Based on our VLM analysis, {destroyed:,} buildings were classified as destroyed "
-                    f"out of {total:,} total assessed buildings ({destroyed/total*100:.1f}%). "
-                    f"This includes assessments across {len(by_disaster)} disaster events: "
-                    f"{', '.join(by_disaster.keys())}."
+                    f"Based on our Hurricane Harvey VLM analysis, {destroyed:,} buildings were classified as "
+                    f"destroyed out of {total:,} total assessed buildings ({destroyed/safe_total*100:.1f}%). "
+                    f"These are satellite-imagery assessments from the Houston metropolitan area."
                 )
             if "major" in lower:
-                major = dist.get("major-damage", 0)
                 return (
-                    f"Our model identified {major:,} buildings with major damage "
-                    f"out of {total:,} total assessments ({major/total*100:.1f}%). "
+                    f"Our model identified {major:,} buildings with major damage out of {total:,} total "
+                    f"Hurricane Harvey assessments ({major/safe_total*100:.1f}%). "
                     f"Major damage indicates significant structural compromise visible in post-disaster imagery."
                 )
             if "minor" in lower:
-                minor = dist.get("minor-damage", 0)
                 return (
-                    f"The analysis found {minor:,} buildings with minor damage "
-                    f"out of {total:,} total assessments ({minor/total*100:.1f}%). "
+                    f"The analysis found {minor:,} buildings with minor damage out of {total:,} total "
+                    f"Hurricane Harvey assessments ({minor/safe_total*100:.1f}%). "
                     f"Minor damage typically includes superficial issues like broken windows or minor roof damage."
+                )
+            if "no damage" in lower or "undamaged" in lower:
+                return (
+                    f"The system classified {no_damage:,} buildings as having no damage out of {total:,} total "
+                    f"Hurricane Harvey assessments ({no_damage/safe_total*100:.1f}%)."
                 )
             # Generic count question
             return (
-                f"The system has analyzed {total:,} buildings across {len(by_disaster)} disaster events. "
-                f"Damage breakdown: {', '.join(f'{k}: {v:,}' for k, v in dist.items())}."
+                f"The Hurricane Harvey dataset contains {total:,} building assessments. "
+                f"Damage breakdown: destroyed {destroyed:,}, major damage {major:,}, "
+                f"minor damage {minor:,}, no damage {no_damage:,}."
             )
 
         if any(w in lower for w in ["summary", "overview", "status", "report"]):
-            lines = [f"Assessment Overview — {total:,} buildings analyzed across {len(by_disaster)} disasters:\n"]
-            for disaster, counts in by_disaster.items():
-                disaster_total = sum(counts.values())
-                lines.append(f"• {disaster.replace('-', ' ').title()}: {disaster_total:,} buildings assessed")
-                for label, count in sorted(counts.items(), key=lambda x: -x[1]):
-                    lines.append(f"  - {label}: {count:,} ({count/disaster_total*100:.1f}%)")
+            lines = [f"Hurricane Harvey Assessment Overview — {total:,} buildings analyzed:\n"]
+            for label, count in sorted(dist.items(), key=lambda x: -x[1]):
+                lines.append(f"  - {label.replace('-', ' ').replace('_', ' ')}: {count:,} ({count/safe_total*100:.1f}%)")
             return "\n".join(lines)
 
         if any(w in lower for w in ["worst", "most damage", "severe", "hardest hit"]):
-            worst_disaster = max(by_disaster.items(), key=lambda x: x[1].get("destroyed", 0))
             return (
-                f"The hardest-hit disaster was {worst_disaster[0].replace('-', ' ').title()} "
-                f"with {worst_disaster[1].get('destroyed', 0):,} buildings destroyed. "
-                f"Full breakdown: {', '.join(f'{k}: {v:,}' for k, v in worst_disaster[1].items())}."
+                f"In the Hurricane Harvey dataset, {destroyed:,} buildings were completely destroyed "
+                f"({destroyed/safe_total*100:.1f}% of all assessed structures). "
+                f"An additional {major:,} had major damage. "
+                f"The Houston area was among the hardest-hit regions."
             )
 
         if any(w in lower for w in ["model", "accuracy", "performance", "how well"]):
             return (
                 f"The system uses the Qwen2.5-VL-3B-Instruct vision-language model with 4-bit quantization. "
-                f"It has processed {total:,} building assessments across {len(by_disaster)} disaster events. "
+                f"It has processed {total:,} Hurricane Harvey building assessments. "
                 f"Each prediction includes a damage classification, confidence score, and natural language rationale "
                 f"explaining the visual evidence observed in the pre/post disaster imagery."
             )
