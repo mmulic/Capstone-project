@@ -229,6 +229,21 @@ async def ml_evaluation(job_id: Optional[int] = None):
         )
     if result.get("error"):
         raise HTTPException(status_code=500, detail=result["error"])
+
+    # Transform confusion_matrix shape for frontend compatibility
+    cm = result.get("confusion_matrix")
+    if isinstance(cm, dict) and "matrix" in cm:
+        result["class_labels"] = cm.get("labels", [])
+        result["confusion_matrix"] = cm["matrix"]
+
+    if "accuracy" in result and "overall_accuracy" not in result:
+        result["overall_accuracy"] = result["accuracy"]
+
+    if "macro_precision" in result:
+        result["overall_precision"] = result["macro_precision"]
+    if "macro_recall" in result:
+        result["overall_recall"] = result["macro_recall"]
+
     return result
 
 

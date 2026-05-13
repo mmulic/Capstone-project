@@ -51,7 +51,7 @@ async def damage_data(
     if supabase_bridge.is_configured and supabase_bridge.is_reachable():
         # Reuse the ML bridge router's logic by importing its handler
         from app.routers.ml_bridge import ml_geojson
-        return await ml_geojson(limit=2000, disaster=disaster)
+        return await ml_geojson(limit=2000, disaster=disaster or "hurricane-harvey")
 
     # Fallback to local PostgreSQL data
     return await geojson_service.get_feature_collection(
@@ -102,11 +102,14 @@ async def query(
     # ── 1. Check if this is a general disaster/FEMA question ──────────
     is_general_disaster = any(w in lower for w in [
         "what is", "what are", "define", "explain", "fema", "how does",
-        "hurricane", "tornado", "earthquake", "flood", "tsunami",
         "category", "saffir", "richter", "preparedness", "evacuation",
         "emergency", "relief", "recovery", "insurance", "claim",
         "shelter", "red cross", "disaster declaration",
-    ]) and not any(w in lower for w in ["how many", "count", "destroyed", "our", "dataset", "prediction"])
+    ]) and not any(w in lower for w in [
+        "how many", "count", "destroyed", "our", "dataset", "prediction",
+        "show", "damage", "buildings", "scene", "map", "focus", "zoom",
+        "harvey", "florence", "where", "location",
+    ])
 
     if is_general_disaster:
         response_text = _get_disaster_knowledge(message, lower)
