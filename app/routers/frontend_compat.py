@@ -164,10 +164,11 @@ async def query(
         # Check for scene references first — they are more specific than location
         scene_match = _extract_scene_id(message)
         if scene_match:
-            # Fetch all Harvey predictions and match on full scene_id
+            # Fetch ALL Harvey predictions (5000 cap) so we don't miss any scene
             preds = supabase_bridge.fetch_predictions(
-                limit=2000, disaster_name="hurricane-harvey"
+                limit=5000, disaster_name="hurricane-harvey"
             )
+            scene_num_display = scene_match.split("_")[-1].lstrip("0") or "0"
             if preds and not preds[0].get("error"):
                 scene_preds = [
                     p for p in preds
@@ -183,19 +184,49 @@ async def query(
                             lats.append(p["latitude"])
                             lngs.append(p["longitude"])
 
-                    scene_num = scene_match.split("_")[-1].lstrip("0") or "0"
-                    context_text += f"\nScene {scene_num} ({scene_match}): {len(scene_preds)} buildings\n"
-                    context_text += f"Damage breakdown: {', '.join(f'{k}: {v}' for k, v in sc_counts.items())}\n"
-
+                    # Build a direct human-readable response for scene queries
+                    damage_parts = ", ".join(
+                        f"{k.replace('-', ' ').replace('_', ' ')}: {v}" for k, v in sc_counts.items()
+                    )
+                    scene_response = (
+                        f"Scene {scene_num_display} (Hurricane Harvey) has {len(scene_preds)} assessed buildings. "
+                        f"Damage breakdown — {damage_parts}."
+                    )
                     if lats and lngs:
+                        scene_response += (
+                            f" The scene is centered at approximately "
+                            f"({sum(lats)/len(lats):.4f}°N, {sum(lngs)/len(lngs):.4f}°W). "
+                            f"The map has been focused on this location."
+                        )
                         map_focus = {
                             "lat": sum(lats) / len(lats),
                             "lng": sum(lngs) / len(lngs),
                             "zoom": 16,
                             "building_count": len(scene_preds),
                         }
+
+                    result = {
+                        "response": scene_response,
+                        "answer": scene_response,
+                        "context_used": {"source": "supabase", "has_data": True},
+                    }
+                    if map_focus:
+                        result["map_focus"] = map_focus
+                    return result
                 else:
-                    context_text += f"\nScene {scene_match} was not found in the Hurricane Harvey dataset.\n"
+                    not_found_msg = (
+                        f"Scene {scene_num_display} was not found in the Hurricane Harvey dataset. "
+                        f"Try a different scene number. The dataset contains assessments across "
+                        f"the Houston metropolitan area from 2017."
+                    )
+                    return {
+                        "response": not_found_msg,
+                        "answer": not_found_msg,
+                        "context_used": {"source": "supabase", "has_data": False},
+                    }
+            else:
+                # Supabase error — fall through to generic response
+                context_text += f"\nScene {scene_num_display} lookup failed.\n"
 
         # ── 5. Location-specific queries (city / disaster name) ────────
         elif _extract_location(message):
