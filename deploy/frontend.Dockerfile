@@ -101,6 +101,7 @@ RUN printf 'server {\n\
     server_name _;\n\
     root /usr/share/nginx/html;\n\
     index index.html;\n\
+    client_max_body_size 60m;\n\
 \n\
     # Proxy all backend routes to the FastAPI container\n\
     location ~ ^/(api|query|damage-data|evaluate|health)/ {\n\
