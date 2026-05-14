@@ -85,4 +85,18 @@ class GeminiLLMService(BaseLLMService):
         return (response.text or "").strip() or "I couldn't generate a response. Please try again."
 
 
+class MockLLMService(BaseLLMService):
+    """Deterministic mock for tests — no API key required."""
+
+    async def generate_response(
+        self,
+        message: str,
+        context: str,
+        history: list[dict[str, str]],
+    ) -> str:
+        if context:
+            return f"Based on the assessment data: {context[:100]}"
+        return "I don't have enough context to answer that question."
+
+
 llm_service: BaseLLMService = GeminiLLMService()
