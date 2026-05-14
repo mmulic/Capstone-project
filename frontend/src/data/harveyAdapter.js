@@ -6,6 +6,8 @@
  * Flat marker arrays (preMarkers, postMarkers) are kept for future overlay use.
  */
 
+import { getScenesWithPredictions } from "../services/api.js";
+
 let _cache = null;
 
 const HARVEY_DISASTER = "hurricane-harvey";
@@ -20,11 +22,26 @@ export async function loadHarveyData() {
     raw.scenes.filter(s => s.disaster === HARVEY_DISASTER).map(s => s.sceneId)
   );
 
-  // Drop zero-building scenes — no annotation data to work with
+  // Fetch scene IDs that have predictions in Supabase — drop the rest
+  let scenesWithPredictions = new Set();
+  try {
+    const ids = await getScenesWithPredictions();
+    ids.forEach(id => {
+      // API returns full scene_id like "hurricane-harvey_00000003", extract the numeric part
+      const shortId = id.replace("hurricane-harvey_", "");
+      scenesWithPredictions.add(shortId);
+    });
+  } catch {
+    // If the API is unreachable, fall back to showing all scenes
+    scenesWithPredictions = harveySceneIds;
+  }
+
+  // Drop zero-building scenes and scenes without predictions
   const placeableIds = new Set(
     raw.scenes
       .filter(s => harveySceneIds.has(s.sceneId))
       .filter(s => (s.buildingCount?.pre ?? 0) + (s.buildingCount?.post ?? 0) > 0)
+      .filter(s => scenesWithPredictions.has(s.sceneId))
       .map(s => s.sceneId)
   );
 
