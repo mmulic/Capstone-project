@@ -84,6 +84,17 @@ cp .env.example .env
 docker-compose up --build
 ```
 
+### Harvey Map Images (local only — not in git)
+
+The satellite images for the map overlay are excluded from git due to size. After cloning, copy them from the ML data folder:
+
+```bash
+mkdir -p frontend/public/harvey/harvey_images
+cp ml/data/test/images/*.png frontend/public/harvey/harvey_images/
+```
+
+> This requires `ml/data/` to be present locally. If you don't have it, ask a teammate for the dataset.
+
 Open http://localhost:8000/docs for the interactive Swagger UI.
 
 PostgreSQL + PostGIS starts automatically. **No AWS account needed for local dev** — S3 falls back to local filesystem storage.
