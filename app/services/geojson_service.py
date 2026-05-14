@@ -6,11 +6,9 @@ for the React/Leaflet map frontend. Supports bounding box filtering via PostGIS.
 """
 
 from typing import Optional
-from uuid import UUID
 
-from sqlalchemy import select, func, and_, cast, Float
+from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from geoalchemy2.functions import ST_MakeEnvelope, ST_Within
 
 from app.models.models import Property, Prediction, DamageClass

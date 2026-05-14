@@ -6,7 +6,7 @@ Thin alias endpoints that match what the React frontend currently calls.
 
 import re
 import logging
-from typing import Optional, Any
+from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Query, HTTPException
@@ -398,7 +398,7 @@ async def evaluate_alias(
         from uuid import UUID
         async with AsyncSessionLocal() as db:
             return await get_property_detail(UUID(propertyId), db=db)
-    except (ValueError, HTTPException) as e:
+    except (ValueError, HTTPException):
         raise HTTPException(
             status_code=404,
             detail=f"Property '{propertyId}' not found in either ML or local database"

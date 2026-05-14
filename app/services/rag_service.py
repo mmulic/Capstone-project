@@ -10,11 +10,11 @@ Two retrieval strategies:
 import json
 from typing import Optional
 
-from sqlalchemy import select, func, and_, or_, desc, cast, String
+from sqlalchemy import select, func, and_, or_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from geoalchemy2.functions import ST_DWithin, ST_MakePoint, ST_SetSRID
 
-from app.models.models import Property, Prediction, Image, DamageClass
+from app.models.models import Property, Prediction, DamageClass
 
 
 class RAGRetrievalService:

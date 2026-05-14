@@ -145,7 +145,7 @@ class PredictionOrchestrator:
                         prediction.job_id = uuid.UUID(job_id)
                         await db.commit()
                         return True
-                    except Exception as e:
+                    except Exception:
                         await db.rollback()
                         return False
 
