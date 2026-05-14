@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { MapContainer, TileLayer, ImageOverlay, CircleMarker, Polygon, Tooltip, Pane, useMap } from "react-leaflet";
 import { useAppContext } from "../context/AppContext.jsx";
 import { postQuery, getDamageData } from "../services/api.js";
+import Breadcrumb from "../components/Breadcrumb.jsx";
 import {
   loadHarveyData,
   getSceneOptions,
@@ -621,22 +622,14 @@ export default function MapWorkspace() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-5 py-2.5 bg-white border-b border-gray-100 shrink-0">
-        <nav className="flex items-center gap-1.5 text-sm text-gray-400">
-          <button onClick={() => setCurrentPage("overview")} className="hover:text-blue-600 transition-colors">Projects</button>
-          <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-          <span className="text-gray-500">Hurricane Harvey</span>
-          <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-          <span className="text-gray-900 font-medium">{breadcrumbSuffix}</span>
-        </nav>
-        <div className="flex items-center gap-2">
-          <button className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white">
-            Map View
-          </button>
-          <button className="text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
-            Export Report
-          </button>
-        </div>
+      <div className="bg-white border-b border-gray-100 px-8 py-2.5 shrink-0 flex items-center">
+        <Breadcrumb crumbs={[
+          { label: "Home",             page: "landing"  },
+          { label: "Dashboard",        page: "overview" },
+          { label: "Hurricane Harvey", page: "overview" },
+          { label: "Map View",         page: "map"      },
+          { label: breadcrumbSuffix },
+        ]} />
       </div>
 
       {/* Main content */}

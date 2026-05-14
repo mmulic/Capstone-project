@@ -43,6 +43,16 @@ export async function getMLStats() {
 }
 
 /**
+ * GET /api/ml/jobs
+ * Returns recent inference jobs from the ML pipeline.
+ * Shape: { count, jobs: [{ id, job_name, model_name, model_version, status, started_at, finished_at }] }
+ */
+export async function getMLJobs(limit = 20) {
+  const { data } = await api.get("/api/ml/jobs", { params: { limit } });
+  return data;
+}
+
+/**
  * GET /api/ml/evaluation
  * Returns model evaluation metrics (accuracy, precision, recall, F1, confusion matrix).
  * Returns null if no evaluation runs exist yet.
