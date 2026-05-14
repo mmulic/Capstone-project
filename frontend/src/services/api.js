@@ -20,9 +20,11 @@ export async function getDamageData(params = {}) {
   return data;
 }
 
-/** POST /query → { message, history } → AI assistant response */
-export async function postQuery(message, history = []) {
-  const { data } = await api.post("/query", { message, history });
+/** POST /query → { message, history, scene_id? } → AI assistant response */
+export async function postQuery(message, history = [], sceneId = null) {
+  const body = { message, history };
+  if (sceneId) body.scene_id = sceneId;
+  const { data } = await api.post("/query", body);
   return data;
 }
 
