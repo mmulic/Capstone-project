@@ -403,6 +403,26 @@ class SupabaseBridge:
             logger.error(f"fetch_scene_damage_stats failed: {e}")
             return []
 
+    def fetch_scene_ids_with_predictions(self, disaster: str = "hurricane-harvey") -> list[str]:
+        """Return sorted list of scene_ids that have at least one building prediction."""
+        if not self.is_configured:
+            return []
+        query = """
+            SELECT DISTINCT s.scene_id
+            FROM building_predictions p
+            JOIN buildings b ON b.id = p.building_id
+            JOIN scenes s    ON s.id = b.scene_id
+            WHERE s.disaster_name ILIKE %s
+            ORDER BY s.scene_id
+        """
+        try:
+            with self._connect() as conn, conn.cursor() as cur:
+                cur.execute(query, (f"%{disaster}%",))
+                return [r["scene_id"] for r in cur.fetchall()]
+        except Exception as e:
+            logger.error(f"fetch_scene_ids_with_predictions failed: {e}")
+            return []
+
     def fetch_evaluation(self, job_id: Optional[int] = None) -> Optional[dict]:
         """Pull the latest evaluation_runs entry, optionally for a specific job."""
         if not self.is_configured:

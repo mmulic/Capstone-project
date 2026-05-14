@@ -35,6 +35,15 @@ export async function evaluateProperty(propertyId) {
 }
 
 /**
+ * GET /api/ml/scenes-with-predictions
+ * Returns scene IDs that have at least one building prediction.
+ */
+export async function getScenesWithPredictions() {
+  const { data } = await api.get("/api/ml/scenes-with-predictions");
+  return data.scene_ids;
+}
+
+/**
  * GET /api/ml/stats
  * Returns damage distribution grouped by disaster.
  * Shape: { by_disaster, overall_distribution, total_predictions, disasters_count }
