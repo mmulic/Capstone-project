@@ -103,7 +103,7 @@ RUN printf 'server {\n\
     index index.html;\n\
 \n\
     # Proxy all backend routes to the FastAPI container\n\
-    location ~ ^/(api|query|damage-data|evaluate|health|harvey)/ {\n\
+    location ~ ^/(api|query|damage-data|evaluate|health)/ {\n\
         proxy_pass http://disaster-api:8000;\n\
         proxy_set_header Host $host;\n\
         proxy_set_header X-Real-IP $remote_addr;\n\
