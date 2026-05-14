@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { getMLStats, getMLEvaluation } from "../services/api.js";
+import Breadcrumb from "../components/Breadcrumb.jsx";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -79,21 +80,17 @@ const MetricsPage = () => {
       });
   }, []);
 
-  // ── Distribution chart data ──────────────────────────────────────────────
-  const distData = (() => {
-    if (!stats) return [];
-    const byDisaster = stats.by_disaster ?? {};
-    const disasters  = Object.keys(byDisaster);
+  // ── Harvey-only derived data ─────────────────────────────────────────────
+  const harveyKey   = stats ? Object.keys(stats.by_disaster ?? {}).find(k => k.includes("harvey")) : null;
+  const harveyDist  = harveyKey ? (stats.by_disaster[harveyKey] ?? {}) : {};
+  const harveyTotal = Object.values(harveyDist).reduce((s, v) => s + (v ?? 0), 0);
 
-    return ["no-damage", "minor-damage", "major-damage", "destroyed"].map((key) => {
-      const row = { category: key.replace(/-/g, " ").toUpperCase() };
-      disasters.forEach((d) => { row[d] = byDisaster[d]?.[key] ?? 0; });
-      return row;
-    });
-  })();
+  const distData = ["no-damage", "minor-damage", "major-damage", "destroyed"].map((key) => ({
+    category: key.replace(/-/g, " ").toUpperCase(),
+    "hurricane-harvey": harveyDist[key] ?? 0,
+  }));
 
-  const disasters = stats ? Object.keys(stats.by_disaster ?? {}) : [];
-  const DISASTER_COLORS = ["#3b82f6", "#f97316", "#10b981", "#8b5cf6"];
+  const DISASTER_COLORS = ["#3b82f6"];
 
   // ── KPI cards from evaluation ────────────────────────────────────────────
   const kpis = evaluation ? [
@@ -141,13 +138,14 @@ const MetricsPage = () => {
       <div className="bg-white border-b border-gray-100 px-8 py-5 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <nav className="text-sm text-gray-400 mb-1 flex gap-1.5 items-center">
-              <span className="hover:text-blue-600 cursor-pointer">Home</span>
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-              <span className="hover:text-blue-600 cursor-pointer">Analytics</span>
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-              <span className="text-gray-700">Evaluation &amp; Metrics</span>
-            </nav>
+            <div className="mb-1">
+              <Breadcrumb crumbs={[
+                { label: "Home",      page: "landing"  },
+                { label: "Dashboard", page: "overview" },
+                { label: "Hurricane Harvey", page: "overview" },
+                { label: "Evaluation & Metrics" },
+              ]} />
+            </div>
             <h1 className="text-2xl font-bold text-gray-900">Evaluation &amp; Metrics</h1>
             <p className="text-sm text-gray-500 mt-1 max-w-xl">
               Comparing VLM damage predictions against ground-truth labels.
@@ -165,25 +163,22 @@ const MetricsPage = () => {
         {stats && (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 flex flex-wrap items-center gap-8">
             <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Total Predictions</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total_predictions?.toLocaleString()}</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Disaster</p>
+              <p className="text-2xl font-bold text-gray-900">Hurricane Harvey</p>
             </div>
+            <div className="w-px h-8 bg-gray-100" />
             <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Disasters</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.disasters_count}</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Total Predictions</p>
+              <p className="text-2xl font-bold text-gray-900">{harveyTotal.toLocaleString()}</p>
             </div>
-            {Object.entries(stats.overall_distribution ?? {}).map(([key, val]) => (
+            {["no-damage", "minor-damage", "major-damage", "destroyed"].map((key) => (
               <div key={key}>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
                   {key.replace(/-/g, " ")}
                 </p>
-                <p className="text-2xl font-bold text-gray-900">{val?.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">{(harveyDist[key] ?? 0).toLocaleString()}</p>
               </div>
             ))}
-            <div className="ml-auto flex items-center gap-1.5 text-xs text-gray-400">
-              <span className="w-2 h-2 rounded-full bg-green-400" />
-              Live data
-            </div>
           </div>
         )}
 
@@ -272,14 +267,10 @@ const MetricsPage = () => {
           <div className="xl:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-start justify-between mb-4">
               <h3 className="font-semibold text-gray-900 leading-tight">Distribution by<br/>Severity</h3>
-              <div className="flex flex-col gap-1 text-xs text-gray-500">
-                {disasters.map((d, i) => (
-                  <span key={d} className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-sm inline-block" style={{ background: DISASTER_COLORS[i % DISASTER_COLORS.length] }} />
-                    {d.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                  </span>
-                ))}
-              </div>
+              <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                <span className="w-3 h-3 rounded-sm inline-block" style={{ background: DISASTER_COLORS[0] }} />
+                Hurricane Harvey
+              </span>
             </div>
             <div className="h-52">
               {statsError ? (
@@ -296,15 +287,12 @@ const MetricsPage = () => {
                     <XAxis dataKey="category" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false}/>
                     <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false}/>
                     <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }}/>
-                    {disasters.map((d, i) => (
-                      <Bar
-                        key={d}
-                        dataKey={d}
-                        fill={DISASTER_COLORS[i % DISASTER_COLORS.length]}
-                        radius={[3, 3, 0, 0]}
-                        name={d.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                      />
-                    ))}
+                    <Bar
+                      dataKey="hurricane-harvey"
+                      fill={DISASTER_COLORS[0]}
+                      radius={[3, 3, 0, 0]}
+                      name="Hurricane Harvey"
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               )}

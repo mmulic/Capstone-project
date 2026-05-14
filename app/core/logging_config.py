@@ -10,8 +10,6 @@ import logging
 import sys
 import time
 from datetime import datetime
-from typing import Optional
-
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -81,7 +79,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             response.headers["X-Response-Time-MS"] = str(duration_ms)
             return response
 
-        except Exception as e:
+        except Exception:
             duration_ms = int((time.time() - start) * 1000)
             logger.error(
                 f"{request.method} {request.url.path} -> ERROR",

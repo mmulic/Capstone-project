@@ -325,6 +325,84 @@ class SupabaseBridge:
             logger.error(f"Supabase fetch_disaster_summary failed: {e}")
             return [{"error": str(e)}]
 
+    def fetch_predictions_in_bbox(
+        self,
+        min_lat: float,
+        max_lat: float,
+        min_lng: float,
+        max_lng: float,
+        limit: int = 1000,
+    ) -> list[dict]:
+        """Return predictions whose building centroid falls within a lat/lng bounding box."""
+        if not self.is_configured:
+            return []
+        query = """
+            SELECT
+                p.final_label     AS damage_class,
+                p.final_confidence AS confidence,
+                b.building_uid,
+                ST_Y(b.centroid)  AS latitude,
+                ST_X(b.centroid)  AS longitude,
+                s.scene_id        AS scene_key,
+                s.disaster_name
+            FROM building_predictions p
+            JOIN buildings b ON b.id = p.building_id
+            JOIN scenes s    ON s.id = b.scene_id
+            WHERE ST_Y(b.centroid) BETWEEN %s AND %s
+              AND ST_X(b.centroid) BETWEEN %s AND %s
+            ORDER BY p.id DESC
+            LIMIT %s
+        """
+        try:
+            with self._connect() as conn, conn.cursor() as cur:
+                cur.execute(query, (min_lat, max_lat, min_lng, max_lng, limit))
+                return [dict(r) for r in cur.fetchall()]
+        except Exception as e:
+            logger.error(f"fetch_predictions_in_bbox failed: {e}")
+            return []
+
+    def fetch_scene_damage_stats(self) -> list[dict]:
+        """Return all scenes with damage counts and approximate centroid computed from buildings."""
+        if not self.is_configured:
+            return []
+        query = """
+            SELECT
+                s.scene_id,
+                s.disaster_name,
+                p.final_label,
+                COUNT(*)                    AS count,
+                AVG(ST_Y(b.centroid))       AS avg_lat,
+                AVG(ST_X(b.centroid))       AS avg_lng
+            FROM building_predictions p
+            JOIN buildings b ON b.id = p.building_id
+            JOIN scenes s    ON s.id = b.scene_id
+            WHERE ST_X(b.centroid) BETWEEN -180 AND 180
+              AND ST_Y(b.centroid) BETWEEN  -90 AND  90
+              AND NOT (ST_X(b.centroid) = 0 AND ST_Y(b.centroid) = 0)
+            GROUP BY s.scene_id, s.disaster_name, p.final_label
+            ORDER BY s.scene_id
+        """
+        try:
+            with self._connect() as conn, conn.cursor() as cur:
+                cur.execute(query)
+                rows = cur.fetchall()
+            scenes: dict[str, dict] = {}
+            for row in rows:
+                sid = row["scene_id"]
+                if sid not in scenes:
+                    scenes[sid] = {
+                        "scene_id": sid,
+                        "disaster_name": row["disaster_name"],
+                        "avg_lat": float(row["avg_lat"] or 0),
+                        "avg_lng": float(row["avg_lng"] or 0),
+                        "damage_counts": {},
+                    }
+                scenes[sid]["damage_counts"][row["final_label"]] = int(row["count"])
+            return list(scenes.values())
+        except Exception as e:
+            logger.error(f"fetch_scene_damage_stats failed: {e}")
+            return []
+
     def fetch_evaluation(self, job_id: Optional[int] = None) -> Optional[dict]:
         """Pull the latest evaluation_runs entry, optionally for a specific job."""
         if not self.is_configured:

@@ -6,7 +6,6 @@ and pre/post pair matching by property ID and GPS proximity.
 """
 
 import io
-import json
 import math
 from datetime import datetime
 from typing import Optional

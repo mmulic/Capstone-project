@@ -2,8 +2,8 @@ services:
   # ── React Frontend (Nginx) ───────────────────────────
   frontend:
     build:
-      context: ../frontend
-      dockerfile: ../disaster-assessment-backend/deploy/frontend.Dockerfile
+      context: .
+      dockerfile: deploy/frontend.Dockerfile
       args:
         # Frontend talks to backend via the EC2 public IP / domain
         # In production, use a relative URL or environment-driven value

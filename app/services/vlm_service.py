@@ -10,7 +10,6 @@ from __future__ import annotations
 import io
 import json
 import re
-import time
 
 from PIL import Image
 from google import genai
