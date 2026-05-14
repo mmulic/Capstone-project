@@ -49,8 +49,8 @@ EOF
 # Fresh install with exact versions — no broken deps possible
 RUN npm install --no-audit --no-fund --legacy-peer-deps
 
-# Now copy source (overwrites our placeholder package.json — restore it)
-COPY . .
+# Now copy source from frontend/ subdir (context is repo root)
+COPY frontend/ .
 
 # Restore our pinned package.json (it just got overwritten by the COPY above)
 RUN cat > package.json <<'EOF'
