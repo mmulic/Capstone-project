@@ -132,6 +132,53 @@ const MetricsPage = () => {
     ? (rawMatrix?.labels ?? DAMAGE_LABELS.slice(0, confusionMatrix.length))
     : DAMAGE_LABELS;
 
+  const handleExport = () => {
+    const rows = [];
+
+    rows.push(["Disaster Assessment — Evaluation Report"]);
+    rows.push(["Generated", new Date().toLocaleString()]);
+    rows.push([]);
+
+    rows.push(["=== Summary ==="]);
+    rows.push(["Disaster", "Hurricane Harvey"]);
+    rows.push(["Total Predictions", harveyTotal]);
+    ["no-damage", "minor-damage", "major-damage", "destroyed"].forEach((key) =>
+      rows.push([key.replace(/-/g, " "), harveyDist[key] ?? 0])
+    );
+    rows.push([]);
+
+    if (kpis) {
+      rows.push(["=== Model Performance ==="]);
+      rows.push(["Metric", "Value"]);
+      kpis.forEach((k) => rows.push([k.label, k.value]));
+      rows.push([]);
+    }
+
+    if (evaluation?.per_class) {
+      rows.push(["=== Per-Class Metrics ==="]);
+      rows.push(["Class", "Precision", "Recall", "F1", "Support"]);
+      Object.entries(evaluation.per_class).forEach(([cls, m]) =>
+        rows.push([cls.replace(/_/g, " "), pct(m.precision), pct(m.recall), pct(m.f1), m.support ?? "—"])
+      );
+      rows.push([]);
+    }
+
+    if (confusionMatrix) {
+      rows.push(["=== Confusion Matrix (rows = True Label, cols = Predicted) ==="]);
+      rows.push(["", ...matrixLabels]);
+      confusionMatrix.forEach((row, i) => rows.push([matrixLabels[i], ...row]));
+    }
+
+    const csv = rows.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "evaluation-report.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
       {/* Header */}
@@ -151,7 +198,10 @@ const MetricsPage = () => {
               Comparing VLM damage predictions against ground-truth labels.
             </p>
           </div>
-          <button className="flex items-center gap-2 border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg hover:bg-gray-50 shadow-sm">
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg hover:bg-gray-50 shadow-sm"
+          >
             <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
             Export Report
           </button>
