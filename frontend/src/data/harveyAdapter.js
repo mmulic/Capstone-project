@@ -20,7 +20,7 @@ export async function loadHarveyData() {
     raw.scenes.filter(s => s.disaster === HARVEY_DISASTER).map(s => s.sceneId)
   );
 
-  // Drop zero-building scenes — no annotation data to work with
+  // Scenes with no building annotations have no map georef; omit from the app.
   const placeableIds = new Set(
     raw.scenes
       .filter(s => harveySceneIds.has(s.sceneId))
@@ -92,18 +92,42 @@ export function getScenePreview(data, sceneId) {
 }
 
 /**
- * Returns scene centroid markers for the overlay map.
- * Each entry: { sceneId, shortId, lat, lng }
+ * Returns scene markers for the map (click targets for selecting a scene).
+ * The true centroid in `harveyData` is still used for fly-to / metadata;
+ * marker positions are nudged toward the chip's northeast so the dot does not
+ * sit on top of central buildings (especially single-building scenes).
  */
 export function getSceneCentroids(data) {
   return data.scenes
     .filter((s) => s.centroid)
-    .map((s) => ({
-      sceneId: s.sceneId,
-      shortId: parseInt(s.sceneId, 10),
-      lat: s.centroid.lat,
-      lng: s.centroid.lng,
-    }));
+    .map((s) => {
+      let { lat, lng } = s.centroid;
+      const sw = s.imageBounds?.sw;
+      const ne = s.imageBounds?.ne;
+
+      if (sw && ne && sw.length === 2 && ne.length === 2) {
+        const [latSw, lngSw] = sw;
+        const [latNe, lngNe] = ne;
+        const latMid = (latSw + latNe) / 2;
+        const lngMid = (lngSw + lngNe) / 2;
+        const t = 0.78;
+        lat = latMid + (latNe - latMid) * t;
+        lng = lngMid + (lngNe - lngMid) * t;
+      } else {
+        const maxB = Math.max(s.buildingCount?.pre ?? 0, s.buildingCount?.post ?? 0);
+        if (maxB <= 1) {
+          lat += 0.0002;
+          lng += 0.00025;
+        }
+      }
+
+      return {
+        sceneId: s.sceneId,
+        shortId: parseInt(s.sceneId, 10),
+        lat,
+        lng,
+      };
+    });
 }
 
 // ─── Image overlay helpers ────────────────────────────────────────────────────

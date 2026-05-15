@@ -59,6 +59,49 @@ def parse_wkt_polygon_centroid(wkt: str):
     return sum(lats) / len(lats), sum(lngs) / len(lngs)
 
 
+def _image_bounds_corners(A, B, C, D, width: int, height: int):
+    """Return imageBounds dict from affine lng=A+B*px, lat=C+D*py corner projection."""
+    corners_lng = [A, A + B * width, A, A + B * width]
+    corners_lat = [C, C, C + D * height, C + D * height]
+    lng_sw = min(corners_lng)
+    lng_ne = max(corners_lng)
+    lat_sw = min(corners_lat)
+    lat_ne = max(corners_lat)
+    return {
+        "sw": [round(lat_sw, 7), round(lng_sw, 7)],
+        "ne": [round(lat_ne, 7), round(lng_ne, 7)],
+    }
+
+
+def _compute_image_bounds_one_building(xy_wkt: str, ll_wkt: str, width: int, height: int):
+    """
+    When only one building is present, centroid regression is underdetermined.
+    Assume north-up imagery and estimate A,B,C,D from the building polygon's
+    axis-aligned bbox in pixel space vs geographic space, then project image corners.
+    """
+    xy_coords = parse_wkt_polygon_coords(xy_wkt)
+    ll_coords = parse_wkt_polygon_coords(ll_wkt)
+    if len(xy_coords) < 3 or len(ll_coords) < 3:
+        return None
+    xs = [c[0] for c in xy_coords]
+    ys = [c[1] for c in xy_coords]
+    lngs = [c[0] for c in ll_coords]
+    lats = [c[1] for c in ll_coords]
+    x0, x1 = min(xs), max(xs)
+    y0, y1 = min(ys), max(ys)
+    lng_w, lng_e = min(lngs), max(lngs)
+    lat_s, lat_n = min(lats), max(lats)
+    eps = 1e-6
+    dx = max(x1 - x0, eps)
+    dy = max(y1 - y0, eps)
+    B = (lng_e - lng_w) / dx
+    A = lng_w - B * x0
+    # y increases downward; northern edge (larger lat) maps to smaller y.
+    D = (lat_s - lat_n) / dy
+    C = lat_n - D * y0
+    return _image_bounds_corners(A, B, C, D, width, height)
+
+
 def compute_image_bounds(xy_features, ll_features, width: int, height: int):
     """
     Compute the geographic bounding box of the image using paired pixel and
@@ -88,8 +131,23 @@ def compute_image_bounds(xy_features, ll_features, width: int, height: int):
         lat_list.append(lat)
 
     n = len(px_list)
-    if n < 2:
+    if n < 1:
         return None
+    if n == 1:
+        pair = next(
+            (
+                (xy_f, ll_f)
+                for xy_f, ll_f in zip(xy_features, ll_features)
+                if parse_wkt_polygon_centroid(xy_f.get("wkt", ""))
+                and parse_wkt_polygon_centroid(ll_f.get("wkt", ""))
+            ),
+            None,
+        )
+        if not pair:
+            return None
+        return _compute_image_bounds_one_building(
+            pair[0].get("wkt", ""), pair[1].get("wkt", ""), width, height
+        )
 
     def linear_fit(xs, ys):
         """Returns (slope, intercept) via least squares."""
@@ -106,20 +164,7 @@ def compute_image_bounds(xy_features, ll_features, width: int, height: int):
     B, A = linear_fit(px_list, lng_list)   # lng = A + B * px
     D, C = linear_fit(py_list, lat_list)   # lat = C + D * py
 
-    # Project the four image corners to geographic space
-    # Top-left (0, 0), top-right (w, 0), bottom-left (0, h), bottom-right (w, h)
-    corners_lng = [A, A + B * width, A, A + B * width]
-    corners_lat = [C, C, C + D * height, C + D * height]
-
-    lng_sw = min(corners_lng)
-    lng_ne = max(corners_lng)
-    lat_sw = min(corners_lat)
-    lat_ne = max(corners_lat)
-
-    return {
-        "sw": [round(lat_sw, 7), round(lng_sw, 7)],
-        "ne": [round(lat_ne, 7), round(lng_ne, 7)],
-    }
+    return _image_bounds_corners(A, B, C, D, width, height)
 
 
 def parse_scene_id(filename: str):
@@ -216,6 +261,9 @@ def main():
         pre_buildings = extract_buildings(pre_data, "pre") if pre_data else []
         post_buildings = extract_buildings(post_data, "post") if post_data else []
 
+        if len(pre_buildings) + len(post_buildings) == 0:
+            continue
+
         # Compute scene centroid from all buildings
         all_lats = [b["lat"] for b in pre_buildings + post_buildings]
         all_lngs = [b["lng"] for b in pre_buildings + post_buildings]
@@ -274,6 +322,15 @@ def main():
         poly_out = os.path.join(POLYGONS_DIR, f"{scene_id}.json")
         with open(poly_out, "w") as f:
             json.dump(geo_polygons, f, separators=(",", ":"))
+
+    keep_ids = {s["sceneId"] for s in scenes}
+    if os.path.isdir(POLYGONS_DIR):
+        for fn in os.listdir(POLYGONS_DIR):
+            if not fn.endswith(".json"):
+                continue
+            sid = fn[:-5]
+            if sid not in keep_ids:
+                os.remove(os.path.join(POLYGONS_DIR, fn))
 
     print(f"Processed {len(scenes)} scenes "
           f"({sum(1 for s in scenes if s['buildingCount']['pre'] > 0)} with pre, "
