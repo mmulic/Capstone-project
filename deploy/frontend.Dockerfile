@@ -49,8 +49,8 @@ EOF
 # Fresh install with exact versions — no broken deps possible
 RUN npm install --no-audit --no-fund --legacy-peer-deps
 
-# Now copy source (overwrites our placeholder package.json — restore it)
-COPY . .
+# Now copy source from frontend/ subdir (context is repo root)
+COPY frontend/ .
 
 # Restore our pinned package.json (it just got overwritten by the COPY above)
 RUN cat > package.json <<'EOF'
@@ -96,15 +96,30 @@ RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build
 # ─── Stage 2: Serve ───────────────────────────────────────────────
 FROM nginx:alpine AS runtime
 
-RUN echo 'server { \
-    listen 80; \
-    server_name _; \
-    root /usr/share/nginx/html; \
-    index index.html; \
-    location / { \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+RUN printf 'server {\n\
+    listen 80;\n\
+    server_name _;\n\
+    root /usr/share/nginx/html;\n\
+    index index.html;\n\
+    client_max_body_size 60m;\n\
+\n\
+    # Proxy all backend routes to the FastAPI container\n\
+    location ~ ^/(api|query|damage-data|evaluate|health)/ {\n\
+        proxy_pass http://disaster-api:8000;\n\
+        proxy_set_header Host $host;\n\
+        proxy_set_header X-Real-IP $remote_addr;\n\
+    }\n\
+    location ~ ^/(query|damage-data|evaluate|health)$ {\n\
+        proxy_pass http://disaster-api:8000;\n\
+        proxy_set_header Host $host;\n\
+        proxy_set_header X-Real-IP $remote_addr;\n\
+    }\n\
+\n\
+    # SPA fallback\n\
+    location / {\n\
+        try_files $uri $uri/ /index.html;\n\
+    }\n\
+}\n' > /etc/nginx/conf.d/default.conf
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 

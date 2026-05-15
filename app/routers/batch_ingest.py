@@ -8,19 +8,15 @@ GET  /api/ingest/{job_id}/status — Poll job progress
 import io
 import uuid
 import zipfile
-import asyncio
-import json
 import re
 from typing import Optional
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, BackgroundTasks
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
 from geoalchemy2.elements import WKTElement
 
-from app.core.database import get_db, AsyncSessionLocal
-from app.models.models import Property, Image, PredictionJob, JobStatus
+from app.core.database import AsyncSessionLocal
+from app.models.models import Property, Image
 from app.services.s3_service import s3_service
 from app.services.image_preprocessor import image_preprocessor
 

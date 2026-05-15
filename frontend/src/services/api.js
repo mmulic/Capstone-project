@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000",
   timeout: 15000,
   headers: { "Content-Type": "application/json" },
 });
@@ -20,9 +20,11 @@ export async function getDamageData(params = {}) {
   return data;
 }
 
-/** POST /query → { message, history } → AI assistant response */
-export async function postQuery(message, history = []) {
-  const { data } = await api.post("/query", { message, history });
+/** POST /query → { message, history, scene_id? } → AI assistant response */
+export async function postQuery(message, history = [], sceneId = null) {
+  const body = { message, history };
+  if (sceneId) body.scene_id = sceneId;
+  const { data } = await api.post("/query", body);
   return data;
 }
 
@@ -33,12 +35,31 @@ export async function evaluateProperty(propertyId) {
 }
 
 /**
+ * GET /api/ml/scenes-with-predictions
+ * Returns scene IDs that have at least one building prediction.
+ */
+export async function getScenesWithPredictions() {
+  const { data } = await api.get("/api/ml/scenes-with-predictions");
+  return data.scene_ids;
+}
+
+/**
  * GET /api/ml/stats
  * Returns damage distribution grouped by disaster.
  * Shape: { by_disaster, overall_distribution, total_predictions, disasters_count }
  */
 export async function getMLStats() {
   const { data } = await api.get("/api/ml/stats");
+  return data;
+}
+
+/**
+ * GET /api/ml/jobs
+ * Returns recent inference jobs from the ML pipeline.
+ * Shape: { count, jobs: [{ id, job_name, model_name, model_version, status, started_at, finished_at }] }
+ */
+export async function getMLJobs(limit = 20) {
+  const { data } = await api.get("/api/ml/jobs", { params: { limit } });
   return data;
 }
 

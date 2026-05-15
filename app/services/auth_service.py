@@ -6,7 +6,6 @@ JWT token generation/validation and password hashing.
 
 from datetime import datetime, timedelta
 from typing import Optional
-from uuid import UUID
 
 from jose import jwt, JWTError
 from passlib.context import CryptContext

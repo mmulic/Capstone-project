@@ -5,10 +5,8 @@ POST /api/chat — Chatbot endpoint with RAG context retrieval and session histo
 """
 
 import uuid
-from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, desc
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db

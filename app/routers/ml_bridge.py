@@ -250,3 +250,13 @@ async def ml_jobs(limit: int = Query(20, ge=1, le=100)):
         "count": len(jobs),
         "jobs": jobs,
     }
+
+
+# ─── Scene IDs with predictions ──────────────────────────
+
+@router.get("/scenes-with-predictions")
+async def scenes_with_predictions(disaster: str = Query("hurricane-harvey")):
+    """Return scene IDs that have at least one building prediction."""
+    _require_configured()
+    scene_ids = supabase_bridge.fetch_scene_ids_with_predictions(disaster)
+    return {"scene_ids": scene_ids}

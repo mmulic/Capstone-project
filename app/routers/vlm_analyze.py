@@ -16,7 +16,6 @@ Response shape (matches what DatasetsPage expects):
 }
 """
 
-import io
 import os
 import json
 import re
@@ -118,7 +117,7 @@ async def analyze_scene(
         # Parse the JSON response
         try:
             result = json.loads(normalized)
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError:
             logger.error(f"Gemini returned non-JSON: {raw_text[:500]}")
             raise HTTPException(
                 status_code=502,

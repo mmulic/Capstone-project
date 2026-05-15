@@ -37,15 +37,6 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
-  {
-    id: "settings",
-    label: "Settings",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-        <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-      </svg>
-    ),
-  },
 ];
 
 export default function SidebarNav() {
@@ -54,11 +45,15 @@ export default function SidebarNav() {
   return (
     <aside className="w-16 flex flex-col bg-white border-r border-gray-100 shrink-0 py-4 items-center gap-1">
       {/* Logo */}
-      <div className="mb-4 w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
+      <button
+        onClick={() => setCurrentPage("landing")}
+        title="Home"
+        className="mb-4 w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-700 transition-colors"
+      >
         <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5">
           <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
         </svg>
-      </div>
+      </button>
 
       {/* Nav items */}
       <nav className="flex flex-col gap-1 flex-1 w-full px-2">
@@ -85,12 +80,6 @@ export default function SidebarNav() {
         })}
       </nav>
 
-      {/* User avatar */}
-      <div className="mt-auto px-2 w-full">
-        <div className="w-9 h-9 mx-auto rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center cursor-pointer ring-2 ring-offset-1 ring-transparent hover:ring-indigo-300 transition-all">
-          <span className="text-white text-xs font-bold">AE</span>
-        </div>
-      </div>
     </aside>
   );
 }

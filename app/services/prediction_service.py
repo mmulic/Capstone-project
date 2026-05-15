@@ -13,7 +13,6 @@ To implement:
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from app.schemas.schemas import PredictionResult, DamageClassEnum
 import random
 

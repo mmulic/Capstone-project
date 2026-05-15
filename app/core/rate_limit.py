@@ -7,9 +7,7 @@ For production, consider using Redis-backed slowapi.
 
 import time
 from collections import defaultdict, deque
-from typing import Optional
-
-from fastapi import Request, HTTPException
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
 

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { analyzeScene } from "../services/api.js";
+import Breadcrumb from "../components/Breadcrumb.jsx";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -157,16 +158,25 @@ export default function DatasetsPage() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 p-8">
-      <div className="max-w-3xl mx-auto space-y-6">
+    <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
 
-        {/* Header */}
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">VLM Analysis</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Upload a pre- and post-disaster image pair. Gemini will analyze the post-disaster image and return a damage breakdown.
-          </p>
-        </div>
+      {/* Top bar — matches Overview / Metrics layout */}
+      <div className="bg-white border-b border-gray-100 px-8 py-5 flex-shrink-0">
+        <Breadcrumb crumbs={[
+          { label: "Home",             page: "landing"  },
+          { label: "Dashboard",        page: "overview" },
+          { label: "Hurricane Harvey", page: "overview" },
+          { label: "VLM Analysis" },
+        ]} />
+        <h1 className="text-2xl font-bold text-gray-900 mt-1">VLM Analysis</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          Upload a pre- and post-disaster image pair. Gemini will analyze the post-disaster image and return a damage breakdown.
+        </p>
+      </div>
+
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto p-6">
+      <div className="max-w-3xl mx-auto space-y-6">
 
         {/* Upload card */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-6">
@@ -230,6 +240,7 @@ export default function DatasetsPage() {
         {/* Results */}
         {result && <ResultsPanel result={result} />}
 
+      </div>
       </div>
     </div>
   );
